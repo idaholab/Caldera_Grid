@@ -1,0 +1,29 @@
+! This file contains the Supply Equipment Loads
+
+New Load.pev1p_810.2 Bus1=810.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_826.2 Bus1=826.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_838.2 Bus1=838.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_856.2 Bus1=856.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+
+New Load.pev1p_822.1 Bus1=822.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+
+New Load.pev1p_806.1 Bus1=806.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_806.2 Bus1=806.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_806.3 Bus1=806.3 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev3p_806 Bus1=806 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+
+New Load.pev1p_854.1 Bus1=854.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_854.2 Bus1=854.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_854.3 Bus1=854.3 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev3p_854 Bus1=854 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+
+New Load.pev1p_848.1 Bus1=848.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_848.2 Bus1=848.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_848.3 Bus1=848.3 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
+New Load.pev3p_848 Bus1=848 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+
+New Load.pev1p_890.1 Bus1=890.1 Phases=1 Conn=Wye Model=1 kV=2.402 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_890.2 Bus1=890.2 Phases=1 Conn=Wye Model=1 kV=2.402 kW=0.0001 kVAR=0 status=fixed
+New Load.pev1p_890.3 Bus1=890.3 Phases=1 Conn=Wye Model=1 kV=2.402 kW=0.0001 kVAR=0 status=fixed
+New Load.pev3p_890 Bus1=890 Phases=3 Conn=Delta Model=1 kV=4.160 kW=0.0001 kVAR=0 status=fixed
+
