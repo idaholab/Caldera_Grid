@@ -1,0 +1,4 @@
+[submodule "extern/caldera_charge_icm"]
+	path = extern/caldera_charge_icm
+	url = https://hpcgitlab.hpc.inl.gov/caldera_charge/caldera_charge_icm.git
+	branch = main

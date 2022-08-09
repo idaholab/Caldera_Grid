@@ -19,6 +19,7 @@ def get_customized_pev_ramping():
     # ramp_up_delay_sec, ramp_up_kW_per_sec, ramp_down_delay_sec, ramp_down_kW_per_sec
     #---------------------------------------------------------------------------------------
     
+    '''
     off_to_on_kW_per_sec = 10
     ramping_kW_per_sec = 10
     on_to_off_kW_per_sec = -140000    
@@ -54,19 +55,8 @@ def get_customized_pev_ramping():
     on_to_off_kW_per_sec = -140000
     X = pev_charge_ramping(15, off_to_on_kW_per_sec, 0.05, on_to_off_kW_per_sec, 0.1, ramping_kW_per_sec, 0.1, -ramping_kW_per_sec)
     ramping_by_pevType_only[vehicle_enum.hd_600kWh] = X
+    '''
 
-    off_to_on_kW_per_sec = 50    
-    ramping_kW_per_sec = 50
-    on_to_off_kW_per_sec = -140000
-    X = pev_charge_ramping(15, off_to_on_kW_per_sec, 0.05, on_to_off_kW_per_sec, 0.1, ramping_kW_per_sec, 0.1, -ramping_kW_per_sec)
-    ramping_by_pevType_only[vehicle_enum.hd_800kWh] = X
-
-    off_to_on_kW_per_sec = 100    
-    ramping_kW_per_sec = 100
-    on_to_off_kW_per_sec = -140000
-    X = pev_charge_ramping(15, off_to_on_kW_per_sec, 0.05, on_to_off_kW_per_sec, 0.1, ramping_kW_per_sec, 0.1, -ramping_kW_per_sec)
-    ramping_by_pevType_only[vehicle_enum.hd_1000kWh] = X
-    
     #=======================================
     #       ramping_by_pevType_seType
     #=======================================

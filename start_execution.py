@@ -5,9 +5,15 @@ import sys
 # some libraries require this.
 # We are inserting at index 1.
 index = 1
-sys.path.insert(index, './Source')
-sys.path.insert(index+1, './Source/Libraries/Caldera')
-sys.path.insert(index+2, './Source/Libraries/Federates')
+sys.path.insert(index, './')
+sys.path.insert(index+1, './libs')
+sys.path.insert(index+2, './source/base')
+sys.path.insert(index+3, './source/custom_controls')
+sys.path.insert(index+4, './source/ES500')
+sys.path.insert(index+5, './source/federates')
+
+# line below should be updated based on project
+sys.path.insert(index+6, './source/customized_inputs/eMosaic')
 
 #---------------------------------
 
