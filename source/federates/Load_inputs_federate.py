@@ -7,7 +7,7 @@ def load_inputs_federate(base_dir, json_config_file_name, simulation_time_constr
     #=====================================
     #         Setup Helics
     #=====================================
-    config_file_path = base_dir + "/Source/Helics_Config/" + json_config_file_name
+    config_file_path = base_dir + "/source/helics_config/" + json_config_file_name
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
     pub_data_loaded = h.helicsFederateGetPublication(fed, 'data_loaded')

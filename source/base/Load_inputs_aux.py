@@ -16,7 +16,7 @@ class load_inputs_aux:
         
         
     def load(self):
-        inputs_dir = self.base_dir + '/Inputs'
+        inputs_dir = self.base_dir + '/inputs'
     
         load_obj = load_input_files(self.start_simulation_unix_time)
         self.L2_control_strategies_to_include = load_obj.get_L2_control_strategies_to_include()

@@ -107,7 +107,7 @@ class open_dss_core:
 
     def __init__(self, base_dir, dss_file_name, baseLD_data_obj):
         self.base_dir = base_dir
-        self.output_path = self.base_dir + '/Output'
+        self.output_path = self.base_dir + '/outputs'
         self.dss_file_name = dss_file_name
         self.feeder_load = non_pev_feeder_load(baseLD_data_obj)
         self.ref_feeder_kW = 1
@@ -124,7 +124,7 @@ class open_dss_core:
     def load_dss_file(self):
         is_successful = True
         
-        dss_filepath = self.base_dir + '/OpenDSS/' + self.dss_file_name
+        dss_filepath = self.base_dir + '/opendss/' + self.dss_file_name
         opendss_input_file_exists = os.path.isfile(dss_filepath)
         
         #-----------------------
@@ -208,7 +208,7 @@ class open_dss_Caldera:
         #-----------------------
         
         is_successful = True
-        f_invalid_nodes = open(self.base_dir + '/Inputs/error_invalid_node_in_SE_file.txt', 'w')
+        f_invalid_nodes = open(self.base_dir + '/inputs/error_invalid_node_in_SE_file.txt', 'w')
         
         if len(errors) > 0:
             is_successful = False
@@ -286,7 +286,7 @@ class open_dss_logger_A:
         for x in X:
             openDSS_node_names.add(x)
         
-        output_path = self.base_dir + '/Output'
+        output_path = self.base_dir + '/outputs'
         
         #--------------------------------------
         #           feeder_PQ.csv
