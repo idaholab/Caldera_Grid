@@ -7,3 +7,7 @@ __pycache__/
 
 # Distribution / packaging
 build/
+
+#error files and output files
+inputs/*error*
+outputs/*.csv
