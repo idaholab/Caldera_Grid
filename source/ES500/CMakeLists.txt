@@ -1,4 +1,4 @@
-set(GLOBALS_DIR ${PROJECT_SOURCE_DIR}/extern/caldera_charge_icm/source/charging_models)
+set(GLOBALS_DIR ${PROJECT_SOURCE_DIR}/extern/Caldera_ICM/source/charging_models)
 
 pybind11_add_module(ES500_Aggregator_Helper ${GLOBALS_DIR}/datatypes_global.cpp 
 					${GLOBALS_DIR}/${PROJECT}/datatypes_global_SE_EV_definitions.cpp 

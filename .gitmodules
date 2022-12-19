@@ -1,4 +1,3 @@
-[submodule "extern/caldera_charge_icm"]
-	path = extern/caldera_charge_icm
-	url = https://hpcgitlab.hpc.inl.gov/caldera_charge/caldera_charge_icm.git
-	branch = main
+[submodule "extern/Caldera_ICM"]
+	path = extern/Caldera_ICM
+	url = https://github.com/idaholab/Caldera_ICM.git

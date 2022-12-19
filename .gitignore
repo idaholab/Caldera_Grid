@@ -11,3 +11,6 @@ build/
 #error files and output files
 inputs/*error*
 outputs/*.csv
+
+CMakeSettings.json
+.vs/

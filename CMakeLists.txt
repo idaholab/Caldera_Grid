@@ -13,9 +13,7 @@ if (NOT (${PROJECT} STREQUAL "eMosaic" OR ${PROJECT} STREQUAL "EVs_at_Risk" OR $
 	message(FATAL_ERROR "PROJECT cmake variable must be equal to eMosaic or EVs_at_Risk or DirectXFC")
 endif()
 
-
 # Find pybind11
-
 find_package(pybind11 CONFIG)
 
 # Update submodules
@@ -33,7 +31,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/caldera_charge_icm/CMakeLists.txt")
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/Caldera_ICM/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
@@ -43,4 +41,4 @@ SET(INSTALL_DIR ${PROJECT_SOURCE_DIR}/libs)
 
 # Add subdirs to compile the necessary binaries
 add_subdirectory(source/ES500)
-add_subdirectory(extern/caldera_charge_icm)
+add_subdirectory(extern/Caldera_ICM)
