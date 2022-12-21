@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.5)
 
 project(Grid)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Check to see PROJECT cmake variable is set
 if (NOT DEFINED PROJECT)
 	message(WARNING "PROJECT cmake variable not set defaulting to emosiac project")
