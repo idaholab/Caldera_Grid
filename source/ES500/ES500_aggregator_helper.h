@@ -25,7 +25,12 @@ private:
 		int index;
 		double charge_progression;
 		
-		bool operator < (const SE_priority_element& rhs)
+		bool operator<(const SE_priority_element& rhs) const
+		{
+			return this->charge_progression < rhs.charge_progression;
+		}
+
+		bool operator<(SE_priority_element& rhs) const
 		{
 			return this->charge_progression < rhs.charge_progression;
 		}
