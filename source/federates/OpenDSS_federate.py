@@ -11,7 +11,7 @@ def open_dss_federate(base_dir, json_config_file_name, simulation_time_constrain
     config_file_path = base_dir + "/source/helics_config/" + json_config_file_name
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
-    sub_data_loaded = h.helicsFederateGetSubscription(fed, 'Load_Input_Files/data_loaded')
+    sub_data_loaded = h.helicsFederateGetInputByTarget(fed, 'Load_Input_Files/data_loaded')
     pub_dss_simulation_loaded = h.helicsFederateGetPublication(fed, 'dss_simulation_loaded')
 
     input_datasets_endpoint_local = h.helicsFederateGetEndpoint(fed, "input_datasets_endpoint")

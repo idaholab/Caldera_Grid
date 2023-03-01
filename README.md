@@ -1,47 +1,120 @@
-# Caldera_Charge_Grid
+# Caldera_Grid
 
 Caldera and OpenDSS co-simulation platform using HELICS 
 
 ## Overview
-Caldera Grid enables modeling EV charging on the electric grid. Caldera Grid cosimulation platform is built using HELICS (Hierarchical Engine for Large Scale Infrastructure Co-simulation) and cosimulates Caldera ICM with OpenDSS. The platfrom also provides an interface to apply custom control strategies to EV charge events.
+Caldera Grid enables modeling EV charging on the electric grid. Caldera Grid co-simulation platform is built using HELICS (Hierarchical Engine for Large Scale Infrastructure Co-simulation) and cosimulates Caldera ICM with OpenDSS. The platfrom also provides an interface to apply custom control strategies to EV charge events.
 
-## Prerequisites
-
-Caldera Grid depends on `C++ compiler`, `git`, `cmake`, `python` and `pybind11` to compile.
 
 ## Installation
 
-Get a copy of Caldera ICM.
-```
-git clone https://hpcgitlab.hpc.inl.gov/caldera_charge/caldera_charge_grid.git
-```
-If you are interested in the most up to date version of Caldera ICM, the development version is available in the `develop` branch.    
-```
-git switch develop
-```
-To install Caldera Grid using cmake
-```
-cd caldera_charge_grid
-mkdir build
-cmake -DPROJECT=<PROJECT_NAME> -DICM=<ON/OFF> ../
-make
-make install
-```
-If cmake cannot find C++ compiler, python or pybind11. They need to be pointed to its installed paths to find them. Refer to [pybind11](https://pybind11.readthedocs.io/en/stable/compiling.html#building-with-cmake) and [cmake](https://cmake.org/cmake/help/latest/guide/tutorial/index.html) documentations. 
+### Windows
+
+The installation approach for windows is only a suggested approach which is well tested 
 
 
-Caldera Grid compiles the Caldera ICM submodule and installs compiled python libraries in the `libs/` folder. 
+#### Prerequisites
 
-`-DPROJECT` flag is used to specify the project specific EV-EVSE models to be used. Options are `DirectXFC`, `eMosaic` and `EVs_at_Risk`. `-DICM` flag turns ON/OFF compiling `Caldera_ICM` lib. Please refer to Caldera ICM project for more information with respect to Caldera ICM compilation.
+Caldera Grid has the following requirements to be able to compile on windows
+
+1. Install git for windows
+2. Install Anaconda
+3. Install visual studio with C++ and cmake
+
+#### Anaconda environment setup
+
+1. Open anaconda prompt
+2. Create a new conda environment
+	```
+	conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
+	```
+3. Activate the new conda environment
+	```
+	conda activate Caldera
+	```
+4. Install required python packages
+	```
+	conda install pybind11                  # (recommended version >= 2.10)
+	conda install numpy                     # (recommended version >= 1.23.5)
+	conda install pandas                    # (recommended version >= 1.5.2)
+	conda install cvxopt                    # (recommended version >= 1.2.6)
+	pip install "OpenDSSDirect.py[extras]"  # (recommended version >= 0.7.0)
+	pip install helics                      # (recommended version >= 3.4.0)
+	```
+
+#### Download Caldera Grid
+
+1. open git for windows
+2. navigate to desired folder where you would like to download Caldera Grid
+	```
+	cd <path_to_desired_download_folder>
+	```
+3. clone Caldera Grid from Github
+	```
+	git clone https://github.com/idaholab/Caldera_Grid.git
+	```
+4. Swich to develop branch. Develop branch has the most recent updates and bug fixes for Caldera Grid
+	```
+	git switch develop
+	```
+
+#### Compile Caldera Grid
+
+1. Open the downloaded Caldera Grid folder in Visual Studio
+	```
+	File -> Open -> Folder -> <path_to_Caldera_Grid>
+	```
+2. Open CMakeSettings.json
+	```
+	Project -> CMake Settings
+	```
+3. Set flages for the cmake compilation process in the CMake command arguments test box
+	```
+	 -DPROJECT=eMosaic -DICM=ON -DPYTHON_EXECUTABLE=<path_to_anaconda3>\envs\<env_name>\python.exe -Dpybind11_DIR=<path_to_anaconda3>\envs\<env_name>\Library\share\cmake\pybind11
+	```
+	- PROJECT - options are DirectXFC, eMosaic and EVs_at_Risk
+	- ICM - needs to be ON, Caldera_Grid needs ICM module	
+4. Configure CMake
+	- Saving CMakeSettings.json will kick off the configuration in the output tab
+5. Build libraries
+	```
+	build -> build all
+	```
+6. Install libraries
+	```
+	build -> Install Grid
+	```
+
+#### Running Caldera Grid
+
+1. Open Anaconda prompt
+2. Navigate to project folder
+	```
+	cd <path_to_Caldera_Grid>
+	```
+3. Activate Anaconda environment
+	```
+	conda activate Caldera
+	```
+4. Run simulation
+	```
+	python start_execution.py
+	```
+
+	- `start_execution.py` is set up to run a simple example of EVs charging on the IEEE 34 node test feeder.
+
+
+__NOTE :__ If the excution takes longer time to run, Try using release mode to build
 
 ## Usage
 Please refer to [usage documentation](https://hpcgitlab.hpc.inl.gov/caldera_charge/caldera_charge_grid/-/raw/main/docs/Caldera-OpenDSS%20simulation%20platform.pptx) to learn on how to use the tool.
 
-`start_execution.py` is set up to run a simple example of EVs charging on the IEEE 34 node test feeder.
+## Citation
+If you use Caldera Grid in your research, please cite:
+
+Sundarrajan, Manoj Kumar Cebol, Scoffield, Don R, Rumsey, Paden D, & USDOE Office of Nuclear Energy. (2022, December 13). idaholab/Caldera_Grid [Computer software]. https://www.osti.gov//servlets/purl/1907411. https://doi.org/10.11578/dc.20230103.3
+
 
 ## Authors
 1. Don Scoffield, Senior Research Engineer, Idaho National Laboratory
 2. Manoj Sundarrajan, Research Software Developer, Idaho National Laboratory
-
-## License
-For open source projects, say how it is licensed.

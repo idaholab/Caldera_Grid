@@ -507,7 +507,7 @@ class load_SE_CE_input_files:
         if len(errors) == 0:
             grid_node_id_col_name = elements[4].strip()
             location_type_col_name = elements[6].strip()
-            df = pd.read_csv(SE_data_file_path, sep=',', header=0, dtype={grid_node_id_col_name:np.str, location_type_col_name:np.str})
+            df = pd.read_csv(SE_data_file_path, sep=',', header=0, dtype={grid_node_id_col_name:str, location_type_col_name:str})
             
             if len(df.columns) != number_of_fields:
                 errors.append('NA, There must be {} columns in file.'.format(number_of_fields))
