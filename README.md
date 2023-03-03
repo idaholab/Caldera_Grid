@@ -117,6 +117,7 @@ mkdir build
 cd build
 cmake -DPROJECT=eMosaic -DICM=ON ../
 make -j 4
+make install
 ```
 
 ##### Notes for macOS
