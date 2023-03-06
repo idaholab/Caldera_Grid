@@ -1,6 +1,6 @@
 Key,Value,Description
 target_P3_reference__percent_of_maxP3,70,
 max_delta_kVAR_per_min,1000,
-volt_var_curve,0.95|-100  ;  0.975|-25  ;  0.99|-5  ;  1|0  ;  1.03|0  ;  1.05|20,V1|Q1  ;  V2|Q2  ;  V3|Q3  ;  V4|Q4  …  Vn|Qn
+volt_var_curve,0.95|-100  ;  0.975|-25  ;  0.99|-5  ;  1|0  ;  1.03|0  ;  1.05|20,V1|Q1  ;  V2|Q2  ;  V3|Q3  ;  V4|Q4  ;  Vn|Qn
 voltage_LPF,is_active|True  ;  seed|35  ;  window_size_LB|2  ;  window_size_UB|18  ;  window_type|Rectangular,
 can_provide_reactive_power_after_battery_full,FALSE,

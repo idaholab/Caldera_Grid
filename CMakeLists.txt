@@ -18,6 +18,13 @@ endif()
 # Find pybind11
 find_package(pybind11 CONFIG)
 
+# Make sure C++11 flag is set for macOS.
+if(APPLE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang\$")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    endif()
+endif()
+
 # Update submodules
 find_package(Git QUIET)
 if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
