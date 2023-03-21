@@ -135,8 +135,18 @@ class logger_helper:
     
     def process_control_messages(self, simulation_unix_time, message_dict): 
 
-        # return empty dict
-        return {}
+        return_dict = {}
+        
+        for (msg_enum, parameters) in message_dict.items():
+            if msg_enum == OpenDSS_message_types.get_all_node_voltages:
+                return_dict[msg_enum] = self.get_pu_node_voltages_for_caldera()
+                
+            else:
+                raise ValueError('Invalid message in caldera_ICM_aux::process_message.')
+        
+        # The return value (return_dict) must be a dictionary with OpenDSS_message_types as keys.
+        # If there is nothing to return, return an empty dictionary.
+        return return_dict
 
     
     def set_caldera_pev_charging_loads(self, node_pevPQ):
