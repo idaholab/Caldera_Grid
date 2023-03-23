@@ -1,0 +1,2 @@
+find_package(Python COMPONENTS Interpreter REQUIRED)
+add_test(NAME "ex_original" COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/start_execution.py WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )
