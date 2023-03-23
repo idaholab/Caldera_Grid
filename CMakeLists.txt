@@ -51,3 +51,4 @@ SET(INSTALL_DIR ${PROJECT_SOURCE_DIR}/libs)
 # Add subdirs to compile the necessary binaries
 add_subdirectory(source/ES500)
 add_subdirectory(extern/Caldera_ICM)
+add_subdirectory(examples)
