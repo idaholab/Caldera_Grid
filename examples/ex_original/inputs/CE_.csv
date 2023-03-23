@@ -1,0 +1,7 @@
+charge_event_id,SE_id,pev_id,pev_type,start_time,end_time_chg,end_time_prk,dest_type,soc_i,soc_f,ES_strategy,VS_strategy,Ext_strategy
+1,1,1,ld_100kWh,8,_,10,_,0,1,NA,NA,ext0001q
+2,2,2,ld_100kWh,8,_,10,_,0,1,NA,NA,ext0001q
+3,3,3,ld_100kWh,12,_,14,_,0,1,NA,NA,ext0002q
+4,4,4,ld_100kWh,12,_,14,_,0,1,NA,NA,ext0002q
+5,4,4,ld_100kWh,20,_,22,_,0,0.2,NA,NA,NA
+6,4,4,ld_100kWh,20,_,23,_,0,0.2,NA,NA,NA
