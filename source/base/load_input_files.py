@@ -1126,8 +1126,10 @@ class load_ES100_parameters:
             errors.append('{}, randomization_method must be one of (M1  M2  M3).'.format(line_number))
         
         TofU_rate_period_duration_hrs = parameters_dict['end_of_TofU_rate_period__time_from_midnight_hrs'] - parameters_dict['beginning_of_TofU_rate_period__time_from_midnight_hrs']
-        if TofU_rate_period_duration_hrs < 0.5:
-            errors.append('NA, Invalid time of use rate period.')
+        
+        # commented out to allow TOU period within a day. e.g. (8, -6) aka (8, 18)
+        #if TofU_rate_period_duration_hrs < 0.5:
+        #    errors.append('NA, Invalid time of use rate period.')
         
         return errors
     
