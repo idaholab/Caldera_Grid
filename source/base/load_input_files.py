@@ -709,12 +709,12 @@ class load_SE_CE_input_files:
                 if len(tmp_errors) > 0:
                     errors += tmp_errors
                 else:
-                    if not supply_equipment_is_L2(SEid_to_SE_type[SE_id]):
-                        ES_enum = control_strategies.ES_control_strategy
-                        VS_enum = control_strategies.VS_control_strategy
-                        NA_enum = L2_control_strategies_enum.NA
-                        if ES_enum != NA_enum or VS_enum != NA_enum:
-                            errors.append("{}, Error: L2 control strategy assigned to non L2 charge.".format(line_number))
+                    #if not supply_equipment_is_L2(SEid_to_SE_type[SE_id]):
+                    #    ES_enum = control_strategies.ES_control_strategy
+                    #    VS_enum = control_strategies.VS_control_strategy
+                    #    NA_enum = L2_control_strategies_enum.NA
+                    #    if ES_enum != NA_enum or VS_enum != NA_enum:
+                    #        errors.append("{}, Error: L2 control strategy assigned to non L2 charge.".format(line_number))
                     
                     if len(errors) == 0:
                         assign_control_strategies_to_CE(control_strategies, charge_event, SEid_to_SE_type, self.control_strategy_parameters_dict)
@@ -1858,4 +1858,3 @@ if __name__ == '__main__':
             
     print('Finished')
     
-
