@@ -42,7 +42,7 @@ def load_inputs_federate(io_dir, json_config_file_name, simulation_time_constrai
     #       Load Input Files
     #=====================================    
     
-    load_obj = load_inputs_aux(io_dir, federate_time)
+    load_obj = load_inputs_aux(io_dir, start_simulation_unix_time)
     is_successful = load_obj.load()    
     
     h.helicsPublicationPublishBoolean(pub_data_loaded, is_successful)
