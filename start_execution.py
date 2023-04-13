@@ -17,7 +17,8 @@ sys.path.insert(index+6, './source/customized_inputs/eMosaic')
 
 #---------------------------------
 
-import os, copy
+import os, copy, errno, shutil
+    
 
 from multiprocessing import Process
 import subprocess
@@ -35,17 +36,45 @@ from control_strategy_A import control_strategy_A
 from control_strategy_B import control_strategy_B
 from control_strategy_C import control_strategy_C
 
+import argparse, time
+
 #================================================
 
 if __name__ == '__main__':
     
+    start = time.time()
+    
+    #---------------------
+    
     grid_timestep_sec = 60
-    start_simulation_unix_time = 6*3600
-    end_simulation_unix_time = 25*3600
+    start_simulation_unix_time = 8*24*3600
+    #end_simulation_unix_time = start_simulation_unix_time + 3600
+    end_simulation_unix_time = 11*24*3600
     
     ensure_pev_charge_needs_met_for_ext_control_strategy = False
     use_opendss = False
+
+    #---------------------
     
+    parser = argparse.ArgumentParser(description='Caldera Grid startup script')
+    parser.add_argument('-io','--input_output_path', help='path under the inputs \
+    and outputs folder, output path will be created if it does not exist. If the \
+    argument is not present, default inputs and outputs folder will be used', required=False)
+    
+    args = vars(parser.parse_args())
+    
+    input_path = "/inputs"
+    output_path = "/outputs"
+    
+    if args["input_output_path"] != None:
+        input_path = "/inputs/{}".format(args["input_output_path"])
+        output_path = "/outputs/{}".format(args["input_output_path"])
+    else:
+        print("defaulting to inputs/ and outputs/ folders")
+        
+    print("Input path : {}".format(input_path))
+    print("Output path : {}".format(output_path))
+
     #---------------------
     
     start_simulation_unix_time = int(start_simulation_unix_time)
@@ -81,8 +110,15 @@ if __name__ == '__main__':
     base_dir = os.getcwd()
     io_dir = container_class()
     io_dir.base_dir = base_dir
-    io_dir.inputs_dir = base_dir + "/inputs"
-    io_dir.outputs_dir = base_dir + "/outputs"
+    io_dir.inputs_dir = base_dir + input_path
+    io_dir.outputs_dir = base_dir + output_path
+    
+    if not os.path.exists(io_dir.inputs_dir):
+        print("Input directory does not exist", io_dir.inputs_dir)
+        exit()
+        
+    shutil.rmtree(io_dir.outputs_dir, ignore_errors=True)
+    os.makedirs(io_dir.outputs_dir, exist_ok=True)
     
     #---------------------
     
@@ -155,3 +191,8 @@ if __name__ == '__main__':
 
     for p in processes:
         p.join()
+        
+        
+    end = time.time()
+    
+    print("Total simulation time = {} minutes".format((end - start)/60.0))

@@ -494,8 +494,11 @@ class logger:
         self.reactive_power_profiles = {}
         self.real_power_profiles["simulation_time_hrs"] = []
         self.real_power_profiles["base_load_kW"] = []
+        self.real_power_profiles["total_demand_kW"] = []
+        
         self.reactive_power_profiles["simulation_time_hrs"] = []
         self.reactive_power_profiles["base_load_kW"] = []
+        self.reactive_power_profiles["total_demand_kW"] = []
 
         for node_name in all_caldera_node_names:
             self.real_power_profiles[node_name] = []
@@ -519,9 +522,16 @@ class logger:
         self.reactive_power_profiles["simulation_time_hrs"].append(simulation_time_hrs)
         self.reactive_power_profiles["base_load_kW"].append(base_LD_kW)
 
+        total_P_kW = 0.0
+        total_Q_kVAR = 0.0
         for (node_name, (P_kW, Q_kVAR)) in node_pevPQ.items():
             self.real_power_profiles[node_name].append(P_kW)
             self.reactive_power_profiles[node_name].append(Q_kVAR)
+            total_P_kW += P_kW
+            total_Q_kVAR += Q_kVAR
+    
+        self.real_power_profiles["total_demand_kW"].append(total_P_kW)
+        self.reactive_power_profiles["total_demand_kW"].append(total_Q_kVAR)
 
     def write_data_to_disk(self):
         Output_dir = self.io_dir.outputs_dir
