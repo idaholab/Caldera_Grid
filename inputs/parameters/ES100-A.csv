@@ -1,6 +1,0 @@
-Key,Value,Description
-beginning_of_TofU_rate_period__time_from_midnight_hrs,-1,
-end_of_TofU_rate_period__time_from_midnight_hrs,8,
-randomization_method,M1,valid_values = (M1  M2  M3)
-M1_delay_period_hrs,0.25,
-random_seed,221,
