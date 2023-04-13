@@ -79,6 +79,10 @@ if __name__ == '__main__':
     #---------------------
     
     base_dir = os.getcwd()
+    io_dir = container_class()
+    io_dir.base_dir = base_dir
+    io_dir.inputs_dir = base_dir + "/inputs"
+    io_dir.outputs_dir = base_dir + "/outputs"
     
     #---------------------
     
@@ -86,9 +90,9 @@ if __name__ == '__main__':
     num_of_federates += 1   # Caldera_ICM
     num_of_federates += 1   # OpenDSS
     num_of_federates += 1   # Caldera_ES500
-    num_of_federates += 1   # control_strategy_A
-    num_of_federates += 1   # control_strategy_B
-    num_of_federates += 1   # control_strategy_C
+    #num_of_federates += 1   # control_strategy_A
+    #num_of_federates += 1   # control_strategy_B
+    #num_of_federates += 1   # control_strategy_C
     
     broker = subprocess.Popen(['helics_broker', '--loglevel=no_print', '-f{}'.format(num_of_federates)])
     #broker = subprocess.Popen(['helics_broker', '-f{}'.format(num_of_federates)])
@@ -99,51 +103,51 @@ if __name__ == '__main__':
 
     # Load Input Files Federate
     json_config_file_name = 'Load_Input_Files.json'
-    p = Process(target=load_inputs_federate, args=(base_dir, json_config_file_name, simulation_time_constraints,), name="load_inputs_federate")
+    p = Process(target=load_inputs_federate, args=(io_dir, json_config_file_name, simulation_time_constraints,), name="load_inputs_federate")
     processes.append(p)
     
     # Caldera ICM Federate
     json_config_file_name = 'Caldera_ICM.json'
     create_charge_profile_library = True 
-    p = Process(target=caldera_ICM_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs,), name="caldera_ICM_federate")
+    p = Process(target=caldera_ICM_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs,), name="caldera_ICM_federate")
     processes.append(p)
     
     # OpenDSS Federate
     json_config_file_name = 'OpenDSS.json'
-    p = Process(target=open_dss_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
+    p = Process(target=open_dss_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
     processes.append(p)
 	
     #---------------------------
     #   ES500 Control Federate
     #---------------------------
     json_config_file_name = 'Caldera_ES500.json'
-    ES500_obj = ES500_aux(base_dir, simulation_time_constraints)    
-    p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
+    ES500_obj = ES500_aux(io_dir, simulation_time_constraints)    
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
     processes.append(p)
     
     #-------------------------------
     #   Control Strategy_A Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_A.json'
-    CS_A_obj = control_strategy_A(base_dir, simulation_time_constraints)    
-    p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
-    processes.append(p)
+    CS_A_obj = control_strategy_A(io_dir, simulation_time_constraints)    
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
+    #processes.append(p)
     
     #-------------------------------
     #   Control Strategy_B Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_B.json'
-    CS_B_obj = control_strategy_B(base_dir, simulation_time_constraints)    
-    p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
-    processes.append(p)
+    CS_B_obj = control_strategy_B(io_dir, simulation_time_constraints)    
+    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
+    #processes.append(p)
     
     #-------------------------------
     #   Control Strategy_C Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_C.json'
-    CS_C_obj = control_strategy_C(base_dir, simulation_time_constraints)
-    p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
-    processes.append(p)
+    CS_C_obj = control_strategy_C(io_dir, simulation_time_constraints)
+    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
+    #processes.append(p)
     
 
     for p in processes:

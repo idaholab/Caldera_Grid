@@ -11,12 +11,12 @@ class open_dss:
     # NOTE: The 'open_dss' class does two things: Use OpenDSS, and do logging.
     # if the boolean 'use_opendss' is false, then this class will just do the logging.
     # TODO: Separate the logging into a separate federate.
-    def __init__(self, base_dir, use_opendss):
+    def __init__(self, io_dir, use_opendss):
 
         if use_opendss == True:
-            self.helper = open_dss_helper(base_dir)
+            self.helper = open_dss_helper(io_dir)
         else:
-            self.helper = logger_helper(base_dir)
+            self.helper = logger_helper(io_dir)
 
 
     def get_input_dataset_enum_list(self):
@@ -57,8 +57,8 @@ class open_dss:
 
 class open_dss_helper:
 
-    def __init__(self, base_dir):
-        self.base_dir = base_dir
+    def __init__(self, io_dir):
+        self.io_dir = io_dir
         self.dss_file_name = 'ieee34.dss'
 
     def get_request_list(self):
@@ -74,8 +74,8 @@ class open_dss_helper:
         all_caldera_node_names = self.datasets_dict[input_datasets.all_caldera_node_names]
         HPSE_caldera_node_names = self.datasets_dict[input_datasets.HPSE_caldera_node_names]
         
-        self.dss_core = open_dss_core(self.base_dir, self.dss_file_name, baseLD_data_obj)
-        self.dss_Caldera = open_dss_Caldera(self.base_dir, all_caldera_node_names, HPSE_caldera_node_names)
+        self.dss_core = open_dss_core(self.io_dir, self.dss_file_name, baseLD_data_obj)
+        self.dss_Caldera = open_dss_Caldera(self.io_dir, all_caldera_node_names, HPSE_caldera_node_names)
         self.dss_external_control = open_dss_external_control()
         
         #-------------------------------------------
@@ -91,7 +91,7 @@ class open_dss_helper:
         #----------------------------------------------------
         self.dss_logger = None
         if(is_successful):
-            self.dss_logger = open_dss_logger_A(self.base_dir, all_caldera_node_names, HPSE_caldera_node_names)
+            self.dss_logger = open_dss_logger_A(self.io_dir, all_caldera_node_names, HPSE_caldera_node_names)
 
         return is_successful
 
@@ -116,8 +116,8 @@ class open_dss_helper:
 
 class logger_helper:
 
-    def __init__(self, base_dir):
-        self.base_dir = base_dir
+    def __init__(self, io_dir):
+        self.io_dir = io_dir
 
     def get_request_list(self):
         return [input_datasets.baseLD_data_obj, input_datasets.all_caldera_node_names]
@@ -131,7 +131,7 @@ class logger_helper:
         self.baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         self.all_caldera_node_names = self.datasets_dict[input_datasets.all_caldera_node_names]
                 
-        self.logger_obj = logger(self.base_dir, self.baseLD_data_obj, self.all_caldera_node_names)
+        self.logger_obj = logger(self.io_dir, self.baseLD_data_obj, self.all_caldera_node_names)
 
         is_successful = True
         return is_successful
@@ -207,9 +207,9 @@ class open_dss_external_control:
 class open_dss_core:
     
 
-    def __init__(self, base_dir, dss_file_name, baseLD_data_obj):
-        self.base_dir = base_dir
-        self.output_path = self.base_dir + '/outputs'
+    def __init__(self, io_dir, dss_file_name, baseLD_data_obj):
+        self.io_dir = io_dir
+        self.output_path = self.io_dir.outputs_dir
         self.dss_file_name = dss_file_name
         self.feeder_load = non_pev_feeder_load(baseLD_data_obj)
         self.ref_feeder_kW = 1
@@ -226,7 +226,7 @@ class open_dss_core:
     def load_dss_file(self):
         is_successful = True
         
-        dss_filepath = self.base_dir + '/opendss/' + self.dss_file_name
+        dss_filepath = self.io_dir.base_dir + '/opendss/' + self.dss_file_name
         opendss_input_file_exists = os.path.isfile(dss_filepath)
         
         #-----------------------
@@ -278,8 +278,8 @@ class open_dss_core:
 
 class open_dss_Caldera:
     
-    def __init__(self, base_dir, all_caldera_node_names, HPSE_caldera_node_names):
-        self.base_dir = base_dir
+    def __init__(self, io_dir, all_caldera_node_names, HPSE_caldera_node_names):
+        self.io_dir = io_dir
         self.all_caldera_node_names = all_caldera_node_names
         self.HPSE_caldera_node_names = HPSE_caldera_node_names
         
@@ -310,7 +310,7 @@ class open_dss_Caldera:
         #-----------------------
         
         is_successful = True
-        f_invalid_nodes = open(self.base_dir + '/inputs/error_invalid_node_in_SE_file.txt', 'w')
+        f_invalid_nodes = open(self.io_dir.inputs_dir + '/error_invalid_node_in_SE_file.txt', 'w')
         
         if len(errors) > 0:
             is_successful = False
@@ -371,7 +371,7 @@ class open_dss_Caldera:
 
 class open_dss_logger_A:
 
-    def __init__(self, base_dir, all_caldera_node_names, HPSE_caldera_node_names):
+    def __init__(self, io_dir, all_caldera_node_names, HPSE_caldera_node_names):
         
         node_voltages_to_log = ['810.2', '822.1', '826.2', '856.2', '864.1', '848.1', '848.2', '848.3', '840.1', '840.2', '840.3', '838.2', '890.1', '890.2', '890.3']
         #node_pev_charging_to_log = ['810.2', '826.2', '856.2', '838.2']
@@ -379,7 +379,7 @@ class open_dss_logger_A:
         
         #------------------------------
         
-        self.base_dir = base_dir
+        self.io_dir = io_dir
         self.all_caldera_node_names = all_caldera_node_names
         self.HPSE_caldera_node_names = HPSE_caldera_node_names
         
@@ -388,7 +388,7 @@ class open_dss_logger_A:
         for x in X:
             openDSS_node_names.add(x)
         
-        output_path = self.base_dir + '/outputs'
+        output_path = self.io_dir.outputs_dir
         
         #--------------------------------------
         #           feeder_PQ.csv
@@ -486,9 +486,9 @@ class open_dss_logger_A:
 
 class logger:
 
-    def __init__(self, base_dir, baseLD_data_obj, all_caldera_node_names):
+    def __init__(self, io_dir, baseLD_data_obj, all_caldera_node_names):
 
-        self.base_dir = base_dir
+        self.io_dir = io_dir
         self.all_caldera_node_names = all_caldera_node_names
         self.baseLD_data_obj = baseLD_data_obj
         #print("all_caldera_node_names : {}".format(all_caldera_node_names))
@@ -527,13 +527,13 @@ class logger:
             self.reactive_power_profiles[node_name].append(Q_kVAR)
 
     def write_data_to_disk(self):
-        Output_dir = self.base_dir + "/outputs/"
+        Output_dir = self.io_dir.outputs_dir
 
         df = pd.DataFrame(self.real_power_profiles)
-        df.to_csv(Output_dir + "real_power_profiles.csv", index=False)
+        df.to_csv(Output_dir + "/real_power_profiles.csv", index=False)
 
         df = pd.DataFrame(self.reactive_power_profiles)
-        df.to_csv(Output_dir + "reactive_power_profiles.csv", index=False)
+        df.to_csv(Output_dir + "/reactive_power_profiles.csv", index=False)
 
     def get_pu_node_voltages_for_caldera(self):
 
