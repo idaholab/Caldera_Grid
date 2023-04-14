@@ -1,27 +1,75 @@
 
 import opendssdirect as dss
 import os, math
+import pandas as pd
 
 from global_aux import OpenDSS_message_types, input_datasets, non_pev_feeder_load
 
 
 class open_dss:
 
+    # NOTE: The 'open_dss' class does two things: Use OpenDSS, and do logging.
+    # if the boolean 'use_opendss' is false, then this class will just do the logging.
+    # TODO: Separate the logging into a separate federate.
+    def __init__(self, base_dir, use_opendss):
+
+        if use_opendss == True:
+            self.helper = open_dss_helper(base_dir)
+        else:
+            self.helper = logger_helper(base_dir)
+
+
+    def get_input_dataset_enum_list(self):
+        return self.helper.get_request_list()
+
+
+    def load_input_datasets(self, datasets_dict):
+        self.helper.load_input_datasets(datasets_dict)
+
+
+    def initialize(self):       
+        return self.helper.initialize()
+    
+
+    def process_control_messages(self, simulation_unix_time, message_dict):        
+        return self.helper.process_control_messages(simulation_unix_time, message_dict)
+
+    
+    def set_caldera_pev_charging_loads(self, node_pevPQ):
+        self.helper.set_caldera_pev_charging_loads(node_pevPQ)
+    
+    
+    def get_pu_node_voltages_for_caldera(self):
+        return self.helper.get_pu_node_voltages_for_caldera()
+    
+    
+    def solve(self, simulation_unix_time):
+        self.helper.solve(simulation_unix_time)        
+    
+
+    def log_data(self, simulation_unix_time):
+        self.helper.log_data(simulation_unix_time)
+
+
+    def post_simulation(self):
+        self.helper.post_simulation()
+
+
+class open_dss_helper:
+
     def __init__(self, base_dir):
         self.base_dir = base_dir
         self.dss_file_name = 'ieee34.dss'
 
-
-    def get_input_dataset_enum_list(self):
+    def get_request_list(self):
         return [input_datasets.baseLD_data_obj, input_datasets.all_caldera_node_names, input_datasets.HPSE_caldera_node_names]
-
 
     def load_input_datasets(self, datasets_dict):
         # datasets_dict is a dictionary with input_datasets as keys.
         self.datasets_dict = datasets_dict
 
+    def initialize(self):
 
-    def initialize(self):        
         baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         all_caldera_node_names = self.datasets_dict[input_datasets.all_caldera_node_names]
         HPSE_caldera_node_names = self.datasets_dict[input_datasets.HPSE_caldera_node_names]
@@ -46,29 +94,83 @@ class open_dss:
             self.dss_logger = open_dss_logger_A(self.base_dir, all_caldera_node_names, HPSE_caldera_node_names)
 
         return is_successful
-    
-    
+
     def process_control_messages(self, simulation_unix_time, message_dict):        
         return self.dss_external_control.process_control_messages(simulation_unix_time, message_dict)
-    
     
     def set_caldera_pev_charging_loads(self, node_pevPQ):
         self.node_pevPQ = node_pevPQ
         self.dss_Caldera.set_caldera_pev_charging_loads(node_pevPQ) 
-    
-    
+
     def get_pu_node_voltages_for_caldera(self):    
         return self.dss_Caldera.get_pu_node_voltages_for_caldera()
-    
-    
+
     def solve(self, simulation_unix_time):
         self.dss_core.solve(simulation_unix_time)
-        
-    
+
     def log_data(self, simulation_unix_time):
         self.dss_logger.log_data(simulation_unix_time, self.node_pevPQ)
     
+    def post_simulation(self):
+        pass
+
+class logger_helper:
+
+    def __init__(self, base_dir):
+        self.base_dir = base_dir
+
+    def get_request_list(self):
+        return [input_datasets.baseLD_data_obj, input_datasets.all_caldera_node_names]
+
+    def load_input_datasets(self, datasets_dict):
+        # datasets_dict is a dictionary with input_datasets as keys.
+        self.datasets_dict = datasets_dict
+
+    def initialize(self):
+
+        self.baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
+        self.all_caldera_node_names = self.datasets_dict[input_datasets.all_caldera_node_names]
+                
+        self.logger_obj = logger(self.base_dir, self.baseLD_data_obj, self.all_caldera_node_names)
+
+        is_successful = True
+        return is_successful
     
+    def process_control_messages(self, simulation_unix_time, message_dict): 
+
+        return_dict = {}
+        
+        for (msg_enum, parameters) in message_dict.items():
+            if msg_enum == OpenDSS_message_types.get_all_node_voltages:
+                return_dict[msg_enum] = self.get_pu_node_voltages_for_caldera()
+                
+            else:
+                raise ValueError('Invalid message in caldera_ICM_aux::process_message.')
+        
+        # The return value (return_dict) must be a dictionary with OpenDSS_message_types as keys.
+        # If there is nothing to return, return an empty dictionary.
+        return return_dict
+
+    
+    def set_caldera_pev_charging_loads(self, node_pevPQ):
+        self.node_pevPQ = node_pevPQ
+
+    def get_pu_node_voltages_for_caldera(self):
+        return_dict = {}
+        for node_name in self.all_caldera_node_names:
+            return_dict[node_name] = 1.0
+        
+        return return_dict
+
+    def solve(self, simulation_unix_time):
+        self.logger_obj.compute_total_load_profiles(self.node_pevPQ, simulation_unix_time)
+        
+    def log_data(self, simulation_unix_time):
+        return None
+
+    def post_simulation(self):
+        self.logger_obj.write_data_to_disk()
+
 
 class open_dss_external_control:
 
@@ -381,3 +483,62 @@ class open_dss_logger_A:
             
             tmp_str = '{}, {}, {}, {}'.format(simulation_time_hrs, node_V, pevQ_kVAR, pevP_kW)
             f_node.write(tmp_str + '\n')
+
+class logger:
+
+    def __init__(self, base_dir, baseLD_data_obj, all_caldera_node_names):
+
+        self.base_dir = base_dir
+        self.all_caldera_node_names = all_caldera_node_names
+        self.baseLD_data_obj = baseLD_data_obj
+        #print("all_caldera_node_names : {}".format(all_caldera_node_names))
+        
+        self.real_power_profiles = {}
+        self.reactive_power_profiles = {}
+        self.real_power_profiles["simulation_time_hrs"] = []
+        self.real_power_profiles["base_load_kW"] = []
+        self.reactive_power_profiles["simulation_time_hrs"] = []
+        self.reactive_power_profiles["base_load_kW"] = []
+
+        for node_name in all_caldera_node_names:
+            self.real_power_profiles[node_name] = []
+            self.reactive_power_profiles[node_name] = []
+
+
+    def compute_total_load_profiles(self, node_pevPQ, simulation_unix_time):
+  
+        simulation_time_hrs = simulation_unix_time/3600.0
+
+        index = math.floor((simulation_unix_time - self.baseLD_data_obj.data_start_unix_time) / self.baseLD_data_obj.data_timestep_sec)
+
+        if (index < 0) or (index >= len(self.baseLD_data_obj.actual_load_akW)):
+            print("Error : base_LD index computed not in data range")
+            exit()
+
+        base_LD_kW = self.baseLD_data_obj.actual_load_akW[index]
+        self.real_power_profiles["simulation_time_hrs"].append(simulation_time_hrs)
+        self.real_power_profiles["base_load_kW"].append(base_LD_kW)
+
+        self.reactive_power_profiles["simulation_time_hrs"].append(simulation_time_hrs)
+        self.reactive_power_profiles["base_load_kW"].append(base_LD_kW)
+
+        for (node_name, (P_kW, Q_kVAR)) in node_pevPQ.items():
+            self.real_power_profiles[node_name].append(P_kW)
+            self.reactive_power_profiles[node_name].append(Q_kVAR)
+
+    def write_data_to_disk(self):
+        Output_dir = self.base_dir + "/outputs/"
+
+        df = pd.DataFrame(self.real_power_profiles)
+        df.to_csv(Output_dir + "real_power_profiles.csv", index=False)
+
+        df = pd.DataFrame(self.reactive_power_profiles)
+        df.to_csv(Output_dir + "reactive_power_profiles.csv", index=False)
+
+    def get_pu_node_voltages_for_caldera(self):
+
+        return_dict = {}
+        for node_name in self.all_caldera_node_names:
+            return_dict[node_name] = 1.0
+        
+        return return_dict

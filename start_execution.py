@@ -44,6 +44,7 @@ if __name__ == '__main__':
     end_simulation_unix_time = 25*3600
     
     ensure_pev_charge_needs_met_for_ext_control_strategy = False
+    use_opendss = False
     
     #---------------------
     
@@ -109,7 +110,7 @@ if __name__ == '__main__':
     
     # OpenDSS Federate
     json_config_file_name = 'OpenDSS.json'
-    p = Process(target=open_dss_federate, args=(base_dir, json_config_file_name, simulation_time_constraints,), name="open_dss_federate")
+    p = Process(target=open_dss_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
     processes.append(p)
 	
     #---------------------------
