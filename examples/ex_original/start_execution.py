@@ -1,32 +1,53 @@
 import sys
+import os, copy, errno, shutil
+import argparse, time    
+from multiprocessing import Process
+import subprocess
+path_to_here = os.path.dirname(sys.argv[0])
+if( len(path_to_here) > 0 ):
+    path_to_here += "/"
+else:
+    path_to_here = "./"
 
-print("Running 'start_execution.py' from examples/ex_original.")
+# Parse the command-line arguments
+parser = argparse.ArgumentParser(description='Caldera Grid startup script')
+parser.add_argument('-libs','--libraries', help="Path to the root directory of the \
+Caldera Grid project folder, from which the python libraries can be found. \
+If the argument is not present, the default location will be used.", required=False)
+parser.add_argument('-in','--input_path', help="Path to the inputs \
+folder. If the path does not exist then it will be created. If the \
+argument is not present, the default inputs folder will be used.", required=False)
+parser.add_argument('-out','--output_path', help="Path to the outputs \
+folder. If the path does not exist then it will be created. If the \
+argument is not present, the default outputs folder will be used.", required=False)
+parser.add_argument('-ts','--time_step_sec', help="The timestep in seconds. Defaults to 60 seconds.", required=False)
+parser.add_argument('-start','--start_time_sec', help="The start time in seconds. Defaults to 0 seconds.", required=False)
+parser.add_argument('-end', '--end_time_sec', help="The end time in seconds. Defaults to 86400 seconds (or 1 day).", required=False)
+
+# Set the path to the python libraries.
+args = vars(parser.parse_args())
+if args["libraries"] != None:
+    caldera_grid_proj_dir = "{}".format(args["libraries"]) + "/"
+else:
+    caldera_grid_proj_dir = path_to_here
+    print("Defaulting the path to the python libraries to be in the same directory as start_execution.py")
 
 # This should never be inserted at index = 0 because  
 # the path at index = 0 should not be changed because
 # some libraries require this.
 # We are inserting at index 1.
 index = 1
-sys.path.insert(index, '../../')
-sys.path.insert(index+1, '../../libs')
-sys.path.insert(index+2, '../../source/base')
-sys.path.insert(index+3, '../../source/custom_controls')
-sys.path.insert(index+4, '../../source/ES500')
-sys.path.insert(index+5, '../../source/federates')
+sys.path.insert(index+0, caldera_grid_proj_dir + "./")
+sys.path.insert(index+1, caldera_grid_proj_dir + "./libs")
+sys.path.insert(index+2, caldera_grid_proj_dir + "./source/base")
+sys.path.insert(index+3, caldera_grid_proj_dir + "./source/custom_controls")
+sys.path.insert(index+4, caldera_grid_proj_dir + "./source/ES500")
+sys.path.insert(index+5, caldera_grid_proj_dir + "./source/federates")
 
 # line below should be updated based on project
-sys.path.insert(index+6, '../../source/customized_inputs/eMosaic')
+sys.path.insert(index+6, caldera_grid_proj_dir + "./source/customized_inputs/eMosaic")
 
 #---------------------------------
-
-import os, copy
-
-print("CWD: ", os.getcwd()) 
-print("EXITING EARLY FOR NOW, FOR TESTING.")
-exit()
-
-from multiprocessing import Process
-import subprocess
 
 from Caldera_ICM_federate import caldera_ICM_federate
 from OpenDSS_federate import open_dss_federate
@@ -44,14 +65,54 @@ from control_strategy_C import control_strategy_C
 #================================================
 
 if __name__ == '__main__':
-
-    grid_timestep_sec = 60
-    start_simulation_unix_time = 6*3600
-    end_simulation_unix_time = 25*3600
     
+    start = time.time()
+    
+    #---------------------
+
+    if args["input_path"] != None:
+        input_path = "{}".format(args["input_path"])
+    else:
+        # The default location of the 'inputs' and 'outputs
+        # directories are to be in the same directory as 'start_execution.py'.
+        input_path = path_to_here + "inputs"
+        print("Defaulting the inputs/ folder to be in the same directory as start_execution.py")
+    
+    if args["output_path"] != None:
+        output_path = "{}".format(args["output_path"])
+    else:
+        # The default location of the 'inputs' and 'outputs
+        # directories are to be in the same directory as 'start_execution.py'.
+        output_path = path_to_here + "outputs"
+        print("Defaulting the outputs/ folder to be in the same directory as start_execution.py")
+    
+    print("Input path : {}".format(input_path))
+    print("Output path : {}".format(output_path))
+
+    #---------------------
+    
+    # Set the timestep.
+    if args["time_step_sec"] != None:
+        grid_timestep_sec = int(args["time_step_sec"])
+    else:
+        grid_timestep_sec = 60
+    
+    # Set the start time.
+    if args["start_time_sec"] != None:
+        start_simulation_unix_time = int(args["start_time_sec"])
+    else:
+        start_simulation_unix_time = 0
+    
+    # Set the end time.
+    if args["end_time_sec"] != None:
+        end_simulation_unix_time = int(args["end_time_sec"])
+    else:
+        end_simulation_unix_time = 1*24*3600
+
+    # Other options.
     ensure_pev_charge_needs_met_for_ext_control_strategy = False
     use_opendss = False
-    
+
     #---------------------
     
     start_simulation_unix_time = int(start_simulation_unix_time)
@@ -64,7 +125,7 @@ if __name__ == '__main__':
     if not isinstance(grid_timestep_sec, int) or not isinstance(start_simulation_unix_time, int) or not isinstance(end_simulation_unix_time, int):
         print('Either grid_timestep_sec or start_simulation_unix_time or end_simulation_unix_time is not an integer.')
         exit()
-
+    
     simulation_time_constraints = container_class()
     simulation_time_constraints.start_simulation_unix_time = start_simulation_unix_time
     simulation_time_constraints.end_simulation_unix_time = end_simulation_unix_time
@@ -84,17 +145,28 @@ if __name__ == '__main__':
     
     #---------------------
     
-    base_dir = os.getcwd()
+    working_dir = os.getcwd() + "/"
+    io_dir = container_class()
+    io_dir.base_dir = caldera_grid_proj_dir
+    io_dir.inputs_dir = working_dir + input_path
+    io_dir.outputs_dir = working_dir + output_path
+    
+    if not os.path.exists(io_dir.inputs_dir):
+        print("Input directory does not exist", io_dir.inputs_dir)
+        exit()
+        
+    shutil.rmtree(io_dir.outputs_dir, ignore_errors=True)
+    os.makedirs(io_dir.outputs_dir, exist_ok=True)
     
     #---------------------
-
+    
     num_of_federates = 1    # Load_Input_Files
     num_of_federates += 1   # Caldera_ICM
     num_of_federates += 1   # OpenDSS
     num_of_federates += 1   # Caldera_ES500
-    num_of_federates += 1   # control_strategy_A
-    num_of_federates += 1   # control_strategy_B
-    num_of_federates += 1   # control_strategy_C
+    #num_of_federates += 1   # control_strategy_A
+    #num_of_federates += 1   # control_strategy_B
+    #num_of_federates += 1   # control_strategy_C
     
     broker = subprocess.Popen(['helics_broker', '--loglevel=no_print', '-f{}'.format(num_of_federates)])
     #broker = subprocess.Popen(['helics_broker', '-f{}'.format(num_of_federates)])
@@ -105,55 +177,60 @@ if __name__ == '__main__':
 
     # Load Input Files Federate
     json_config_file_name = 'Load_Input_Files.json'
-    p = Process(target=load_inputs_federate, args=(base_dir, json_config_file_name, simulation_time_constraints,), name="load_inputs_federate")
+    p = Process(target=load_inputs_federate, args=(io_dir, json_config_file_name, simulation_time_constraints,), name="load_inputs_federate")
     processes.append(p)
     
     # Caldera ICM Federate
     json_config_file_name = 'Caldera_ICM.json'
     create_charge_profile_library = True 
-    p = Process(target=caldera_ICM_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs,), name="caldera_ICM_federate")
+    p = Process(target=caldera_ICM_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs,), name="caldera_ICM_federate")
     processes.append(p)
     
     # OpenDSS Federate
     json_config_file_name = 'OpenDSS.json'
-    p = Process(target=open_dss_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
+    p = Process(target=open_dss_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
     processes.append(p)
-
+	
     #---------------------------
     #   ES500 Control Federate
     #---------------------------
     json_config_file_name = 'Caldera_ES500.json'
-    ES500_obj = ES500_aux(base_dir, simulation_time_constraints)    
-    p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
+    ES500_obj = ES500_aux(io_dir, simulation_time_constraints)    
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
     processes.append(p)
     
     #-------------------------------
     #   Control Strategy_A Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_A.json'
-    CS_A_obj = control_strategy_A(base_dir, simulation_time_constraints)    
-    p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
-    processes.append(p)
+    CS_A_obj = control_strategy_A(io_dir, simulation_time_constraints)    
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
+    #processes.append(p)
     
     #-------------------------------
     #   Control Strategy_B Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_B.json'
-    CS_B_obj = control_strategy_B(base_dir, simulation_time_constraints)    
-    p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
-    processes.append(p)
+    CS_B_obj = control_strategy_B(io_dir, simulation_time_constraints)    
+    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
+    #processes.append(p)
     
     #-------------------------------
     #   Control Strategy_C Federate
     #-------------------------------
     json_config_file_name = 'control_strategy_C.json'
-    CS_C_obj = control_strategy_C(base_dir, simulation_time_constraints)
-    p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
-    processes.append(p)
+    CS_C_obj = control_strategy_C(io_dir, simulation_time_constraints)
+    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
+    #processes.append(p)
+    
 
     for p in processes:
         p.start()
 
     for p in processes:
         p.join()
-
+        
+        
+    end = time.time()
+    
+    print("Total simulation time = {} minutes".format((end - start)/60.0))
