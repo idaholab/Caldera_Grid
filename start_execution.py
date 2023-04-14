@@ -1,27 +1,53 @@
 import sys
+import os, copy, errno, shutil
+import argparse, time    
+from multiprocessing import Process
+import subprocess
+path_to_here = os.path.dirname(sys.argv[0])
+if( len(path_to_here) > 0 ):
+    path_to_here += "/"
+else:
+    path_to_here = "./"
+
+# Parse the command-line arguments
+parser = argparse.ArgumentParser(description='Caldera Grid startup script')
+parser.add_argument('-libs','--libraries', help="Path to the root directory of the \
+Caldera Grid project folder, from which the python libraries can be found. \
+If the argument is not present, the default location will be used.", required=False)
+parser.add_argument('-in','--input_path', help="Path to the inputs \
+folder. If the path does not exist then it will be created. If the \
+argument is not present, the default inputs folder will be used.", required=False)
+parser.add_argument('-out','--output_path', help="Path to the outputs \
+folder. If the path does not exist then it will be created. If the \
+argument is not present, the default outputs folder will be used.", required=False)
+parser.add_argument('-ts','--time_step_sec', help="The timestep in seconds. Defaults to 60 seconds.", required=False)
+parser.add_argument('-start','--start_time_sec', help="The start time in seconds. Defaults to 0 seconds.", required=False)
+parser.add_argument('-end', '--end_time_sec', help="The end time in seconds. Defaults to 86400 seconds (or 1 day).", required=False)
+
+# Set the path to the python libraries.
+args = vars(parser.parse_args())
+if args["libraries"] != None:
+    caldera_grid_proj_dir = "{}".format(args["libraries"]) + "/"
+else:
+    caldera_grid_proj_dir = path_to_here
+    print("Defaulting the path to the python libraries to be in the same directory as start_execution.py")
 
 # This should never be inserted at index = 0 because  
 # the path at index = 0 should not be changed because
 # some libraries require this.
 # We are inserting at index 1.
 index = 1
-sys.path.insert(index, './')
-sys.path.insert(index+1, './libs')
-sys.path.insert(index+2, './source/base')
-sys.path.insert(index+3, './source/custom_controls')
-sys.path.insert(index+4, './source/ES500')
-sys.path.insert(index+5, './source/federates')
+sys.path.insert(index+0, caldera_grid_proj_dir + "./")
+sys.path.insert(index+1, caldera_grid_proj_dir + "./libs")
+sys.path.insert(index+2, caldera_grid_proj_dir + "./source/base")
+sys.path.insert(index+3, caldera_grid_proj_dir + "./source/custom_controls")
+sys.path.insert(index+4, caldera_grid_proj_dir + "./source/ES500")
+sys.path.insert(index+5, caldera_grid_proj_dir + "./source/federates")
 
 # line below should be updated based on project
-sys.path.insert(index+6, './source/customized_inputs/eMosaic')
+sys.path.insert(index+6, caldera_grid_proj_dir + "./source/customized_inputs/eMosaic")
 
 #---------------------------------
-
-import os, copy, errno, shutil
-    
-
-from multiprocessing import Process
-import subprocess
 
 from Caldera_ICM_federate import caldera_ICM_federate
 from OpenDSS_federate import open_dss_federate
@@ -36,8 +62,6 @@ from control_strategy_A import control_strategy_A
 from control_strategy_B import control_strategy_B
 from control_strategy_C import control_strategy_C
 
-import argparse, time
-
 #================================================
 
 if __name__ == '__main__':
@@ -45,35 +69,49 @@ if __name__ == '__main__':
     start = time.time()
     
     #---------------------
+
+    if args["input_path"] != None:
+        input_path = "{}".format(args["input_path"])
+    else:
+        # The default location of the 'inputs' and 'outputs
+        # directories are to be in the same directory as 'start_execution.py'.
+        input_path = path_to_here + "inputs"
+        print("Defaulting the inputs/ folder to be in the same directory as start_execution.py")
     
-    grid_timestep_sec = 60
-    start_simulation_unix_time = 8*24*3600
-    #end_simulation_unix_time = start_simulation_unix_time + 3600
-    end_simulation_unix_time = 11*24*3600
+    if args["output_path"] != None:
+        output_path = "{}".format(args["output_path"])
+    else:
+        # The default location of the 'inputs' and 'outputs
+        # directories are to be in the same directory as 'start_execution.py'.
+        output_path = path_to_here + "outputs"
+        print("Defaulting the outputs/ folder to be in the same directory as start_execution.py")
     
-    ensure_pev_charge_needs_met_for_ext_control_strategy = False
-    use_opendss = False
+    print("Input path : {}".format(input_path))
+    print("Output path : {}".format(output_path))
 
     #---------------------
     
-    parser = argparse.ArgumentParser(description='Caldera Grid startup script')
-    parser.add_argument('-io','--input_output_path', help='path under the inputs \
-    and outputs folder, output path will be created if it does not exist. If the \
-    argument is not present, default inputs and outputs folder will be used', required=False)
-    
-    args = vars(parser.parse_args())
-    
-    input_path = "/inputs"
-    output_path = "/outputs"
-    
-    if args["input_output_path"] != None:
-        input_path = "/inputs/{}".format(args["input_output_path"])
-        output_path = "/outputs/{}".format(args["input_output_path"])
+    # Set the timestep.
+    if args["time_step_sec"] != None:
+        grid_timestep_sec = int(args["time_step_sec"])
     else:
-        print("defaulting to inputs/ and outputs/ folders")
-        
-    print("Input path : {}".format(input_path))
-    print("Output path : {}".format(output_path))
+        grid_timestep_sec = 60
+    
+    # Set the start time.
+    if args["start_time_sec"] != None:
+        start_simulation_unix_time = int(args["start_time_sec"])
+    else:
+        start_simulation_unix_time = 0
+    
+    # Set the end time.
+    if args["end_time_sec"] != None:
+        end_simulation_unix_time = int(args["end_time_sec"])
+    else:
+        end_simulation_unix_time = 1*24*3600
+
+    # Other options.
+    ensure_pev_charge_needs_met_for_ext_control_strategy = False
+    use_opendss = False
 
     #---------------------
     
@@ -107,11 +145,11 @@ if __name__ == '__main__':
     
     #---------------------
     
-    base_dir = os.getcwd()
+    working_dir = os.getcwd() + "/"
     io_dir = container_class()
-    io_dir.base_dir = base_dir
-    io_dir.inputs_dir = base_dir + input_path
-    io_dir.outputs_dir = base_dir + output_path
+    io_dir.base_dir = caldera_grid_proj_dir
+    io_dir.inputs_dir = working_dir + input_path
+    io_dir.outputs_dir = working_dir + output_path
     
     if not os.path.exists(io_dir.inputs_dir):
         print("Input directory does not exist", io_dir.inputs_dir)
