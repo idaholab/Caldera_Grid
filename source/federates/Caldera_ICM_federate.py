@@ -2,14 +2,15 @@ import helics as h
 from ICM_aux import ICM_aux
 from global_aux import input_datasets
 from Helics_Helper import send, receive, cleanup
+import os
 
-def caldera_ICM_federate(base_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs):
+def caldera_ICM_federate(io_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs):
 
     print_communication = False
     #=====================================
     #         Setup Helics
     #=====================================
-    config_file_path = base_dir + "/source/helics_config/" + json_config_file_name
+    config_file_path = os.path.join( io_dir.base_dir, "source/helics_config/", json_config_file_name )
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
     sub_data_loaded = h.helicsFederateGetInputByTarget(fed, 'Load_Input_Files/data_loaded')

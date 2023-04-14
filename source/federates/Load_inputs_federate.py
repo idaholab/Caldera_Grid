@@ -1,13 +1,14 @@
 import helics as h
 from Load_inputs_aux import load_inputs_aux
 from Helics_Helper import send, receive, cleanup
+import os
 
-def load_inputs_federate(base_dir, json_config_file_name, simulation_time_constraints):
+def load_inputs_federate(io_dir, json_config_file_name, simulation_time_constraints):
 
     #=====================================
     #         Setup Helics
     #=====================================
-    config_file_path = base_dir + "/source/helics_config/" + json_config_file_name
+    config_file_path = os.path.join( io_dir.base_dir, "source/helics_config/", json_config_file_name )
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
     pub_data_loaded = h.helicsFederateGetPublication(fed, 'data_loaded')
@@ -42,7 +43,7 @@ def load_inputs_federate(base_dir, json_config_file_name, simulation_time_constr
     #       Load Input Files
     #=====================================    
     
-    load_obj = load_inputs_aux(base_dir, start_simulation_unix_time)
+    load_obj = load_inputs_aux(io_dir, start_simulation_unix_time)
     is_successful = load_obj.load()    
     
     h.helicsPublicationPublishBoolean(pub_data_loaded, is_successful)

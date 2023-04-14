@@ -1,13 +1,14 @@
 import helics as h
 from Helics_Helper import send, receive, cleanup
+import os
 
-def typeB_control_federate(base_dir, json_config_file_name, simulation_time_constraints, control_obj):
+def typeB_control_federate(io_dir, json_config_file_name, simulation_time_constraints, control_obj):
 
     print_communication = False
     #=====================================
     #         Setup Helics
     #=====================================
-    config_file_path = base_dir + "/source/helics_config/" + json_config_file_name
+    config_file_path = os.path.join( io_dir.base_dir, "source/helics_config/", json_config_file_name )
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
     sub_data_loaded = h.helicsFederateGetInputByTarget(fed, 'Load_Input_Files/data_loaded')

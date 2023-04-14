@@ -1,5 +1,6 @@
 
 import time
+import os
 
 from ES500_Aggregator import ES500_aggregator_parameters__general, ES500_aggregator_parameters__solve_optimization_model, ES500_aggregator_parameters__allocate_energy_to_PEVs
 from ES500_Aggregator import ES500_aggregator, ES500_objective_function, ES500_optimization_solver
@@ -12,8 +13,8 @@ from control_templates import typeA_control
 
 class ES500_aux(typeA_control):
 
-    def __init__(self, base_dir, simulation_time_constraints):        
-        super().__init__(base_dir, simulation_time_constraints)
+    def __init__(self, io_dir, simulation_time_constraints):        
+        super().__init__(io_dir, simulation_time_constraints)
     
     
     def get_input_dataset_enum_list(self):
@@ -194,7 +195,7 @@ class ES500_aux(typeA_control):
 
 class ES500_Aggregator_log_files:
 
-    def __init__(self, base_dir, log_optimization_values, log_pev_energy_setpoints, log_stop_charge_cycling_decision_parameters):
+    def __init__(self, io_dir, log_optimization_values, log_pev_energy_setpoints, log_stop_charge_cycling_decision_parameters):
         self.log_optimization_values = log_optimization_values
         self.log_pev_energy_setpoints = log_pev_energy_setpoints
         self.log_stop_charge_cycling_decision_parameters = log_stop_charge_cycling_decision_parameters
@@ -203,7 +204,7 @@ class ES500_Aggregator_log_files:
         
         self.f_stop_CC = None
         if self.log_stop_charge_cycling_decision_parameters:
-            self.f_stop_CC = open(base_dir + '/outputs/ES500_Stop_Charge_Cycling_Parameters.csv', 'w')
+            self.f_stop_CC = open( os.path.join( io_dir.outputs_dir, 'ES500_Stop_Charge_Cycling_Parameters.csv' ), 'w')
             line = 'next_aggregator_timestep_start_time, next_aggregator_timestep_start_time'
             line += ', iteration, is_last_iteration, off_to_on_nrg_kWh, on_to_off_nrg_kWh, total_on_nrg_kWh'
             line += ', cycling_vs_ramping, cycling_magnitude, delta_energy_kWh'
@@ -211,7 +212,7 @@ class ES500_Aggregator_log_files:
         
         #=============================
         
-        self.f_OSS = open(base_dir + '/outputs/ES500_Optimization_Solver_Status.csv', 'w')
+        self.f_OSS = open( os.path.join( io_dir.outputs_dir, 'ES500_Optimization_Solver_Status.csv' ), 'w')
         line = 'next_aggregator_timestep_start_time, next_aggregator_timestep_start_time'
         line += ', iteration_index, outcome, iteration_execution_time_sec, obj_function_value, relative_gap, solution_status'
         line += ', opt_solver, iteration_timeout_sec, cvxopt__max_relative_gap, w_LB, w_UB'
@@ -223,10 +224,10 @@ class ES500_Aggregator_log_files:
         self.f_E_residual = None
         if self.log_optimization_values:
             if self.log_optimization_values:
-                self.f_OMV = open(base_dir + '/outputs/ES500_Optimization_Model_Values.csv', 'w')
+                self.f_OMV = open( os.path.join( io_dir.outputs_dir, 'ES500_Optimization_Model_Values.csv' ), 'w')
                 self.f_OMV.write('next_aggregator_timestep_start_time, next_aggregator_timestep_start_time, index, E_cumEnergy_ALAP_kWh, E_cumEnergy_ASAP_kWh, E_energy_ALAP_kWh, E_energy_ASAP_kWh, E_step_ALAP, E_step_kWh, D_net_kWh, feeder_step_energy_limit_kWh  \n') 
             
-                self.f_E_residual = open(base_dir + '/outputs/ES500_Residual_Energy.csv', 'w')
+                self.f_E_residual = open( os.path.join( io_dir.outputs_dir, 'ES500_Residual_Energy.csv' ), 'w')
                 self.f_E_residual.write('next_aggregator_timestep_start_time, next_aggregator_timestep_start_time, E_residual_kWh' + '\n')
         
         #=============================
@@ -234,7 +235,7 @@ class ES500_Aggregator_log_files:
         self.f_e_step = None
         if self.log_pev_energy_setpoints:
             if self.log_pev_energy_setpoints:
-                self.f_e_step = open(base_dir + '/outputs/ES500_PEV_Energy_Setpoints.csv', 'w')
+                self.f_e_step = open( os.path.join( io_dir.outputs_dir, 'ES500_PEV_Energy_Setpoints.csv' ), 'w')
                 self.f_e_step.write('next_aggregator_timestep_start_time, next_aggregator_timestep_start_time, process_id, SE_id, e3_step_kWh, charge_progression' + '\n')
     
     

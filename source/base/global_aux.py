@@ -88,7 +88,7 @@ class charge_event_builder:
 
         start_SOC = start_SOC*100.0
         end_SOC = end_SOC*100.0
-
+        
         (conversion_successfull, vehicle_enum) = get_vehicle_enum(vehicle_type)
         
         if not conversion_successfull:
