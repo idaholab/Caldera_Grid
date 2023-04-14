@@ -2,7 +2,7 @@ import helics as h
 from OpenDSS_aux import open_dss
 from Helics_Helper import send, receive, cleanup
 
-def open_dss_federate(base_dir, json_config_file_name, simulation_time_constraints):
+def open_dss_federate(base_dir, json_config_file_name, simulation_time_constraints, use_opendss):
 
     print_communication = False
     #=====================================
@@ -61,7 +61,7 @@ def open_dss_federate(base_dir, json_config_file_name, simulation_time_constrain
     #=====================================
     #       Initialize OpenDSS
     #=====================================
-    dss_obj = open_dss(base_dir)
+    dss_obj = open_dss(base_dir, use_opendss)
     
     #-------------------------------------
     # Get Information from Load Input Files
@@ -157,7 +157,6 @@ def open_dss_federate(base_dir, json_config_file_name, simulation_time_constrain
             if len(msg_dict) != 0:
                 send(msg_dict, typeB_control_endpoint, source)
 
-
         #=====================================
         #         	Sub Step 4
         #=====================================
@@ -182,6 +181,8 @@ def open_dss_federate(base_dir, json_config_file_name, simulation_time_constrain
         
         if federate_time >= end_simulation_unix_time:
             break
+
+    dss_obj.post_simulation()
 
     #=====================================
     #         Terminate Federate
