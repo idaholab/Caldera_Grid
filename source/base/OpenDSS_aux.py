@@ -8,6 +8,9 @@ from global_aux import OpenDSS_message_types, input_datasets, non_pev_feeder_loa
 
 class open_dss:
 
+    # NOTE: The 'open_dss' class does two things: Use OpenDSS, and do logging.
+    # if the boolean 'use_opendss' is false, then this class will just do the logging.
+    # TODO: Separate the logging into a separate federate.
     def __init__(self, base_dir, use_opendss):
 
         if use_opendss == True:
