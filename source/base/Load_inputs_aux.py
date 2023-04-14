@@ -5,8 +5,8 @@ from global_aux import input_datasets, charge_event_builder
 
 class load_inputs_aux:
 
-    def __init__(self, base_dir, start_simulation_unix_time):
-        self.base_dir = base_dir
+    def __init__(self, io_dir, start_simulation_unix_time):
+        self.io_dir = io_dir
         self.start_simulation_unix_time = start_simulation_unix_time
         
         self.SE_CE_data_obj = None
@@ -17,7 +17,7 @@ class load_inputs_aux:
         
         
     def load(self):
-        inputs_dir = self.base_dir + '/inputs'
+        inputs_dir = self.io_dir.inputs_dir
     
         load_obj = load_input_files(self.start_simulation_unix_time)
         self.L2_control_strategies_to_include = load_obj.get_L2_control_strategies_to_include()

@@ -8,8 +8,8 @@ from control_templates import typeA_control
 
 class control_strategy_A(typeA_control):
 
-    def __init__(self, base_dir, simulation_time_constraints):        
-        super().__init__(base_dir, simulation_time_constraints)
+    def __init__(self, io_dir, simulation_time_constraints):        
+        super().__init__(io_dir, simulation_time_constraints)
         
         self.control_timestep_min = 15        
         self.request_state_lead_time_min = 10.1
