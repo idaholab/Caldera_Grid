@@ -115,7 +115,7 @@ cd Caldera_Grid
 git switch develop
 mkdir build
 cd build
-cmake -DPROJECT=eMosaic -DICM=ON ../
+cmake -DPROJECT=eMosaic -DICM=ON -DCMAKE_CXX_STANDARD=11 ../
 make -j 4
 make install
 ```
