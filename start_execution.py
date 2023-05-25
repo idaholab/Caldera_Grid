@@ -24,7 +24,7 @@ import subprocess
 
 from Caldera_ICM_federate import caldera_ICM_federate
 from OpenDSS_federate import open_dss_federate
-from Caldera_global import queuing_mode_enum, charge_event_queuing_inputs
+from Caldera_globals import queuing_mode_enum, charge_event_queuing_inputs
 from Load_inputs_federate import load_inputs_federate
 from typeA_control_federate import typeA_control_federate
 from typeB_control_federate import typeB_control_federate

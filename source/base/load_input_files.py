@@ -3,12 +3,13 @@ import pandas as pd
 import numpy as np
 import time, os, math, fnmatch
 
-from Caldera_global import SE_group_configuration, SE_configuration
-from Caldera_global import pev_is_compatible_with_supply_equipment, supply_equipment_is_L2, supply_equipment_is_3phase
-from Caldera_global import SE_group_charge_event_data, charge_event_data, stop_charging_criteria
-from Caldera_global import get_supply_equipment_enum, get_vehicle_enum, get_LPF_window_enum, LPF_window_enum
-from Caldera_global import L2_control_strategies_enum, get_L2_control_strategies_enum, control_strategy_enums, is_L2_ES_control_strategy, is_L2_VS_control_strategy
-from Caldera_global import L2_control_strategy_supports_Vrms_using_QkVAR
+from Caldera_globals import SE_group_configuration, SE_configuration
+from Caldera_globals import SE_group_charge_event_data, charge_event_data, stop_charging_criteria
+from Caldera_globals import get_LPF_window_enum, LPF_window_enum
+from Caldera_globals import L2_control_strategies_enum, get_L2_control_strategies_enum, control_strategy_enums, is_L2_ES_control_strategy, is_L2_VS_control_strategy
+from Caldera_globals import L2_control_strategy_supports_Vrms_using_QkVAR
+from Caldera_models import load_EV_EVSE_inventory, pev_SE_pair
+from Caldera_models import EVSE_phase, EVSE_level
 from Helper import container_class, select_control_strategy, assign_control_strategies_to_CE
 from Helper import parameters_file_processor, data_conversion_and_validation
 
@@ -123,6 +124,8 @@ class load_input_files:
     def __init__(self, start_simulation_unix_time):
         self.start_simulation_unix_time = start_simulation_unix_time
         
+        self.load_EV_EVSE_inventory = None
+
         self.L2_control_strategies_to_include = []
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.NA)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES100_A)
@@ -326,10 +329,16 @@ class load_input_files:
             return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
         
         #------------------------------
+        #  Load EV_EVSE_inventory files
+        #------------------------------
+        self.load_EV_EVSE_inventory = load_EV_EVSE_inventory(base_dir)
+        EV_EVSE_inventory = self.load_EV_EVSE_inventory.get_EV_EVSE_inventory()
+
+        #------------------------------
         #  Read CE_ and SE_ files
         #------------------------------
         X = load_SE_CE_input_files()
-        (is_successful, SE_CE_data_obj) = X.load(filepaths.SE, filepaths.CE, global_parameters, self.L2_control_strategies_to_include, control_strategy_parameters_dict)
+        (is_successful, SE_CE_data_obj) = X.load(EV_EVSE_inventory, filepaths.SE, filepaths.CE, global_parameters, self.L2_control_strategies_to_include, control_strategy_parameters_dict)
         
         if not is_successful:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
@@ -416,7 +425,7 @@ class load_input_files:
         #               parameters_dict[value_name] = value
         
         if is_successful:
-            return (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
         else:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
             return (False, None, None, None, None)       
@@ -430,7 +439,10 @@ class load_input_files:
 
 class load_SE_CE_input_files:
 
-    def load(self, SE_data_file_path, CE_data_file_path, global_parameters, L2_control_strategies_to_include, control_strategy_parameters_dict):
+    def load(self, EV_EVSE_inventory, SE_data_file_path, CE_data_file_path, global_parameters, L2_control_strategies_to_include, control_strategy_parameters_dict):
+        self.EV_EVSE_inventory = EV_EVSE_inventory
+        self.EV_inventory = self.EV_EVSE_inventory.get_EV_inventory()
+        self.EVSE_inventory = self.EV_EVSE_inventory.get_EVSE_inventory()
         self.L2_control_strategies_to_include = L2_control_strategies_to_include
         self.control_strategy_parameters_dict = control_strategy_parameters_dict
         
@@ -579,7 +591,8 @@ class load_SE_CE_input_files:
                             is_valid = False
                             errors.append("{}, Duplicate SE_id in table.".format(line_number))
                         
-                        (conversion_successfull, SE_enum) = get_supply_equipment_enum(str(SE_type[i]))
+                        SE_enum = str(SE_type[i])
+                        conversion_successfull = True if SE_enum in self.EVSE_inventory else False
                         if not conversion_successfull:
                             is_valid = False
                             errors.append("{}, Invalid SE_type.".format(line_number))
@@ -625,8 +638,8 @@ class load_SE_CE_input_files:
                             
                                 if SE_id[i] in SEid_to_SE_type:
                                     SE_enum = SEid_to_SE_type[SE_id[i]]
-                                
-                                    if supply_equipment_is_3phase(SE_enum):
+                                    
+                                    if self.EVSE_inventory[SE_enum].get_phase() == EVSE_phase.threephase:
                                         if node_id not in HPSE_caldera_node_names:
                                             HPSE_caldera_node_names.add(node_id)
         
@@ -650,7 +663,7 @@ class load_SE_CE_input_files:
         
         number_of_fields_is_valid = True
         if len(elements) != number_of_fields:
-            number_of_fields_is_valid = False        
+            number_of_fields_is_valid = False
         
         #---------------------
         
@@ -669,7 +682,8 @@ class load_SE_CE_input_files:
             errors.append("{}, Invalid value.".format(line_number))
         
         if len(errors) == 0:
-            (conversion_successfull, vehicle_type) = get_vehicle_enum(elements[3])
+            vehicle_type = elements[3]
+            conversion_successfull = True if vehicle_type in self.EV_inventory else False
             
             if not conversion_successfull:
                 errors.append("{}, Invalid pev_type.".format(line_number))
@@ -688,11 +702,12 @@ class load_SE_CE_input_files:
                 errors.append("{}, Error: Invalid soc values.".format(line_number))
             
             if len(errors) == 0:
-                if not pev_is_compatible_with_supply_equipment(vehicle_type, SEid_to_SE_type[SE_id]):
+                EV_EVSE_combination = pev_SE_pair(vehicle_type, SEid_to_SE_type[SE_id])
+                if not self.EV_EVSE_inventory.pev_is_compatible_with_supply_equipment(EV_EVSE_combination):
                     errors.append("{}, Error: Incompatible Supply Equipment and PEV types.".format(line_number))
         
         #-------------------------------------
-        
+                     
         if len(errors) == 0:
             SE_group_id = -1
             charge_event = charge_event_data(charge_event_id, SE_group_id, SE_id, vehicle_id, vehicle_type, arrival_unix_time, departure_unix_time, arrival_SOC, departure_SOC, stop_charging_criteria(), control_strategy_enums())
@@ -709,7 +724,7 @@ class load_SE_CE_input_files:
                 if len(tmp_errors) > 0:
                     errors += tmp_errors
                 else:
-                    if not supply_equipment_is_L2(SEid_to_SE_type[SE_id]):
+                    if not self.EVSE_inventory[SEid_to_SE_type[SE_id]].get_level() == EVSE_level.L2:
                         ES_enum = control_strategies.ES_control_strategy
                         VS_enum = control_strategies.VS_control_strategy
                         NA_enum = L2_control_strategies_enum.NA
@@ -717,7 +732,7 @@ class load_SE_CE_input_files:
                             errors.append("{}, Error: L2 control strategy assigned to non L2 charge.".format(line_number))
                     
                     if len(errors) == 0:
-                        assign_control_strategies_to_CE(control_strategies, charge_event, SEid_to_SE_type, self.control_strategy_parameters_dict)
+                        assign_control_strategies_to_CE(self.EVSE_inventory, control_strategies, charge_event, SEid_to_SE_type, self.control_strategy_parameters_dict)
         
         #-------------------------------------
         

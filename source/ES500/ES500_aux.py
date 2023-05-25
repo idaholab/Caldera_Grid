@@ -5,7 +5,7 @@ from ES500_Aggregator import ES500_aggregator_parameters__general, ES500_aggrega
 from ES500_Aggregator import ES500_aggregator, ES500_objective_function, ES500_optimization_solver
 from ES500_Aggregator_Aid import ES500_Aggregator_charging_needs_forecast
 from Caldera_ICM_Aux import get_baseLD_forecast
-from Caldera_global import L2_control_strategies_enum
+from Caldera_globals import L2_control_strategies_enum
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeA_control
 

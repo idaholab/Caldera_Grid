@@ -1,7 +1,7 @@
 
 from math import floor
 
-from Caldera_global import L2_control_strategies_enum, supply_equipment_enum, vehicle_enum, SE_setpoint
+from Caldera_globals import L2_control_strategies_enum, SE_setpoint
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeB_control
 
@@ -58,7 +58,7 @@ class control_strategy_C(typeB_control):
         if self.iteration_number == 0:
             charge_event_id = 1         # Does not have to be unique for Caldera ICM, but uniqueness could be needed for control
             SE_id = 5                   # Target supply equipment for charge event
-            vehicle_type = "ld_100kWh"
+            vehicle_type = "bev250_ld2_300kW"
             start_time_hrs = 16
             end_time_hrs = 18
             start_SOC = 0

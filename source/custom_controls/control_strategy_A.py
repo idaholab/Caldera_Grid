@@ -1,7 +1,7 @@
 
 from math import floor
 
-from Caldera_global import L2_control_strategies_enum, supply_equipment_enum, vehicle_enum, SE_setpoint
+from Caldera_globals import L2_control_strategies_enum, SE_setpoint
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeA_control
 

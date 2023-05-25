@@ -13,6 +13,7 @@ class load_inputs_aux:
         self.baseLD_data_obj = None
         self.global_parameters = None
         self.control_strategy_parameters_dict = None
+        self.EV_EVSE_inventory = None
         
         
     def load(self):
@@ -21,12 +22,12 @@ class load_inputs_aux:
         load_obj = load_input_files(self.start_simulation_unix_time)
         self.L2_control_strategies_to_include = load_obj.get_L2_control_strategies_to_include()
     
-        (is_successful, self.SE_CE_data_obj, self.baseLD_data_obj, self.global_parameters, self.control_strategy_parameters_dict) = load_obj.load(inputs_dir)
+        (is_successful, self.SE_CE_data_obj, self.baseLD_data_obj, self.global_parameters, self.control_strategy_parameters_dict, self.EV_EVSE_inventory) = load_obj.load(inputs_dir)
         
         if is_successful:
             SEid_to_SE_type = self.SE_CE_data_obj.SEid_to_SE_type
             SEid_to_SE_group = self.SE_CE_data_obj.SEid_to_SE_group
-            self.charge_event_builder_obj = charge_event_builder(SEid_to_SE_type, SEid_to_SE_group, self.L2_control_strategies_to_include, self.control_strategy_parameters_dict)
+            self.charge_event_builder_obj = charge_event_builder(self.EV_EVSE_inventory, SEid_to_SE_type, SEid_to_SE_group, self.L2_control_strategies_to_include, self.control_strategy_parameters_dict)
         else:
             self.charge_event_builder_obj = None
             
