@@ -1,0 +1,4 @@
+EV_type,battery_chemistry,usable_battery_size_kWh,range_miles,efficiency_Wh/Mile,AC_charge_rate_kW,DCFC_capable,max_c_rate,pack_voltage_at_peak_power_V
+bev150_ld1_50kW,NMC,45,150,300,6.072,TRUE,0.85,460
+bev250_ld2_300kW,NMC,87.5,250,350,10.58,TRUE,2.64,900
+bev300_575kW,LTO,142.5,300,475,10.58,TRUE,3.41,900
