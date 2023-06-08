@@ -4,17 +4,6 @@ project(Grid)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Check to see PROJECT cmake variable is set
-if (NOT DEFINED PROJECT)
-	message(WARNING "PROJECT cmake variable not set defaulting to emosiac project")
-endif()
-
-SET(PROJECT "eMosaic" CACHE STRING "Project to compile for")
-
-if (NOT (${PROJECT} STREQUAL "eMosaic" OR ${PROJECT} STREQUAL "EVs_at_Risk" OR ${PROJECT} STREQUAL "DirectXFC"))
-	message(FATAL_ERROR "PROJECT cmake variable must be equal to eMosaic or EVs_at_Risk or DirectXFC")
-endif()
-
 # Find pybind11
 find_package(pybind11 CONFIG)
 
