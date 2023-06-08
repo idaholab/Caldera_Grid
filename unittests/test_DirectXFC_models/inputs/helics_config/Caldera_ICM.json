@@ -1,0 +1,41 @@
+{
+	"name":"Caldera_ICM",
+	"coreName":"Caldera_ICM_core",
+	"coretype":"zmq",
+	"coreInit":"--federates=1",
+	"period": 0.01,
+	"uninterruptible":true,
+
+	"endpoints":
+	[
+        {
+			"name":"input_datasets_endpoint",
+			"global":false,
+			"destination":"Load_Input_Files/input_datasets_endpoint"
+		},
+		{
+			"name":"ICM_openDSS_endpoint",
+			"global":false,
+			"destination":"OpenDSS/ICM_openDSS_endpoint"
+		},
+        {
+			"name":"typeA_control_ICM_endpoint",
+			"global":false
+		},
+        {
+			"name":"typeB_control_ICM_endpoint",
+			"global":false
+		}
+	],   
+    "subscriptions": 
+    [
+        {
+          "key": "Load_Input_Files/data_loaded", 
+          "required": true
+        },
+        {
+          "key": "OpenDSS/dss_simulation_loaded", 
+          "required": true
+        }
+    ]
+}
