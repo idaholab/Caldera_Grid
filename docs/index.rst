@@ -10,20 +10,23 @@ Caldera Grid enables modeling EV charging on the electric grid. Caldera Grid co-
 
 **Installation**:
 =============
-***Windows**:
+**Windows**:
 ------------
 The installation approach for windows is only a suggested approach which is well tested.
 
-Prerequisites
+**Prerequisites**:
+----------------
 Caldera Grid has the following requirements to be able to compile on windows
 
-Install git for windows
-Install Anaconda
-Install visual studio with C++ and cmake
-Anaconda environment setup
-Open anaconda prompt
-Create a new conda environment
-conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
+1)Install git for windows
+2)Install Anaconda
+3)Install visual studio with C++ and cmake
+
+*Anaconda environment setup:*
+
+1)Open anaconda prompt
+2)Create a new conda environment
+3)conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
 Activate the new conda environment
 conda activate Caldera
 Install required python packages
