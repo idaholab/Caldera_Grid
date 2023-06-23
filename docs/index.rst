@@ -97,7 +97,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 **On Ubuntu Linux**
 -----------------------
-    **First, installed Ubuntu.
+    First, installed Ubuntu.
  
      sudo apt inatall git
      mkdir ~/Documents/dev
@@ -144,7 +144,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
     make -j 4
 
-    make install**
+    make install
 
 
 Notes for macOS
