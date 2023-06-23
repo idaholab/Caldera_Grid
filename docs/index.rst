@@ -18,11 +18,11 @@ The installation approach for windows is only a suggested approach which is well
 ----------------
 Caldera Grid has the following requirements to be able to compile on windows.
 
-1)Install git for windows.\
-2)Install Anaconda.
-3)Install visual studio with C++ and cmake.
+1)Install git for windows.  
+2)Install Anaconda.  
+3)Install visual studio with C++ and cmake.  
 
-*Anaconda environment setup:*
+*Anaconda environment setup:*  
 
 1)Open anaconda prompt
 2)Create a new conda environment
