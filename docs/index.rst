@@ -1,10 +1,10 @@
 Welcome to Caldera Grid's documentation!
 ===================================
-*Caldera Gird*:
+**Caldera Gird**:
 -------------
 Caldera and OpenDSS co-simulation platform using HELICS
 
-*Overview*:
+**Overview**:
 -----------
 Caldera Grid enables modeling EV charging on the electric grid. Caldera Grid co-simulation platform is built using HELICS (Hierarchical Engine for Large Scale Infrastructure Co-simulation) and cosimulates Caldera ICM with OpenDSS. The platfrom also provides an interface to apply custom control strategies to EV charge events.
 
@@ -27,14 +27,14 @@ Caldera Grid has the following requirements to be able to compile on windows.
 3)Install visual studio with C++ and cmake. 
 
 
-*Anaconda environment setup:*  
+**Anaconda environment setup:** 
 ----------------------------------
 
 1)Open anaconda prompt
 
    **Create a new conda environment**
 
-3)conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
+   **conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)**
 
 4)Activate the new conda environment
 
