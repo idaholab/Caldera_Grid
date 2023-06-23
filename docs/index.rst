@@ -115,9 +115,9 @@ PROJECT - options are DirectXFC, eMosaic and EVs_at_RiskICM - needs to be ON, Ca
 
   **bash Miniconda3-py39_4.12.0-Linux-x86_64.sh**
     
-  **(installed anaconda)**
+(installed anaconda)
 
-  **(then restarted the terminal)**
+(then restarted the terminal)
     
   **conda create -n caldera python=3.7**
 
