@@ -85,7 +85,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
  **-DPROJECT=eMosaic -DICM=ON -DPYTHON_EXECUTABLE=<path_to_anaconda3>\envs\<env_name>\python.exe -Dpybind11_DIR=<path_to_anaconda3>\envs\ 
  <env_name>\Library\share\cmake\pybind11**
 
-  PROJECT - options are DirectXFC, eMosaic and EVs_at_Risk
+PROJECT - options are DirectXFC, eMosaic and EVs_at_Risk
   ICM - needs to be ON, Caldera_Grid needs ICM module
 4) Configure CMake
   Saving CMakeSettings.json will kick off the configuration in the output tab
@@ -97,7 +97,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 **On Ubuntu Linux**
 -----------------------
-    First, installed Ubuntu.
+     First, installed Ubuntu.
  
      sudo apt inatall git
      mkdir ~/Documents/dev
@@ -114,37 +114,37 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
      bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
     
-    (installed anaconda)
+     (installed anaconda)
 
-    (then restarted the terminal)
+     (then restarted the terminal)
     
-    conda create -n caldera python=3.7
+     conda create -n caldera python=3.7
 
-    conda activate caldera
+     conda activate caldera
 
-    pip install helics
+     pip install helics
 
-    conda install pandas numpy scipy cvxopt
+     conda install pandas numpy scipy cvxopt
 
-    pip install 
+     pip install 
 
-    pip install 'OpenDSSDirect.py[extras]'
+     pip install 'OpenDSSDirect.py[extras]'
 
-    pip install "pybind11[global]"
+     pip install "pybind11[global]"
     
-    cd Caldera_Grid
+     cd Caldera_Grid
 
-    git switch develop
+     git switch develop
 
-    mkdir build
+     mkdir build
 
-    cd build
+     cd build
 
-    cmake -DPROJECT=eMosaic -DICM=ON ../
+     cmake -DPROJECT=eMosaic -DICM=ON ../
 
-    make -j 4
+     make -j 4
 
-    make install
+     make install
 
 
 Notes for macOS
