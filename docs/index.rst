@@ -1,7 +1,8 @@
 Welcome to Caldera Grid's documentation!
 ===================================
-
- ASra
+Caldera Gird:
+-------------
+Caldera and OpenDSS co-simulation platform using HELICS
 
 contents
 -------
