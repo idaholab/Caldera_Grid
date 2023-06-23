@@ -127,7 +127,6 @@ PROJECT - options are DirectXFC, eMosaic and EVs_at_RiskICM - needs to be ON, Ca
      **conda install pandas numpy scipy cvxopt**
 
      **pip install 
-
      pip install 'OpenDSSDirect.py[extras]'**
 
      pip install "pybind11[global]"
