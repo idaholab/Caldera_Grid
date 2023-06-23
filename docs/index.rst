@@ -28,19 +28,33 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 
 *Anaconda environment setup:*  
+----------------------------------
 
 1)Open anaconda prompt
-2)Create a new conda environment
+
+   **Create a new conda environment**
+
 3)conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
-Activate the new conda environment
-conda activate Caldera
-Install required python packages
-conda install pybind11                  # (recommended version >= 2.10)
-conda install numpy                     # (recommended version >= 1.23.5)
-conda install pandas                    # (recommended version >= 1.5.2)
-conda install cvxopt                    # (recommended version >= 1.2.6)
-pip install "OpenDSSDirect.py[extras]"  # (recommended version >= 0.7.0)
-pip install helics                      # (recommended version >= 3.4.0)
+
+4)Activate the new conda environment
+
+5)conda activate Caldera
+
+6)Install required python packages
+
+7)conda install pybind11                  # (recommended version >= 2.10)
+
+8)conda install numpy                     # (recommended version >= 1.23.5)
+
+9)conda install pandas                    # (recommended version >= 1.5.2)
+
+10)conda install cvxopt                    # (recommended version >= 1.2.6)
+
+11)pip install "OpenDSSDirect.py[extras]"  # (recommended version >= 0.7.0)
+
+12)pip install helics                      # (recommended version >= 3.4.0)
+
+
 Download Caldera Grid
 open git for windows
 navigate to desired folder where you would like to download Caldera Grid
