@@ -98,33 +98,52 @@ Caldera Grid has the following requirements to be able to compile on windows.
 **On Ubuntu Linux**
 -----------------------
     **First, installed Ubuntu.
-    sudo apt inatall git
-    mkdir ~/Documents/dev
-    Checked out the repos, put in ~/Documents/dev
-    sudo apt install cmake
-    sudo apt install build-essential
+ 
+     sudo apt inatall git
+     mkdir ~/Documents/dev
+
+     Checked out the repos, put in ~/Documents/dev
+
+     sudo apt install cmake
+
+     sudo apt install build-essential
     
-    cd ~/Documents/
-    wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
-    bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
+     cd ~/Documents/
+
+     wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+
+     bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
     
     (installed anaconda)
+
     (then restarted the terminal)
     
     conda create -n caldera python=3.7
+
     conda activate caldera
+
     pip install helics
+
     conda install pandas numpy scipy cvxopt
-    pip install cython
+
+    pip install 
+
     pip install 'OpenDSSDirect.py[extras]'
+
     pip install "pybind11[global]"
     
     cd Caldera_Grid
+
     git switch develop
+
     mkdir build
+
     cd build
+
     cmake -DPROJECT=eMosaic -DICM=ON ../
+
     make -j 4
+
     make install**
 
 
