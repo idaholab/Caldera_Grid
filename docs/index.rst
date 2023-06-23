@@ -97,38 +97,38 @@ PROJECT - options are DirectXFC, eMosaic and EVs_at_RiskICM - needs to be ON, Ca
 
 **On Ubuntu Linux**
 -----------------------
-     First, installed Ubuntu.
+     **First, installed Ubuntu.**
  
-     sudo apt inatall git
-     mkdir ~/Documents/dev
+     **sudo apt inatall git**
+     **mkdir ~/Documents/dev**
 
-     Checked out the repos, put in ~/Documents/dev
+     **Checked out the repos, put in ~/Documents/dev**
 
-     sudo apt install cmake
+     **sudo apt install cmake**
 
-     sudo apt install build-essential
+     **sudo apt install build-essential**
     
-     cd ~/Documents/
+     **cd ~/Documents/**
 
-     wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+     **wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh**
 
-     bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
+     **bash Miniconda3-py39_4.12.0-Linux-x86_64.sh**
     
-     (installed anaconda)
+     **(installed anaconda)**
 
-     (then restarted the terminal)
+     **(then restarted the terminal)**
     
-     conda create -n caldera python=3.7
+     **conda create -n caldera python=3.7**
 
-     conda activate caldera
+     **conda activate caldera**
 
-     pip install helics
+     **pip install helics**
 
-     conda install pandas numpy scipy cvxopt
+     **conda install pandas numpy scipy cvxopt**
 
-     pip install 
+     **pip install 
 
-     pip install 'OpenDSSDirect.py[extras]'
+     pip install 'OpenDSSDirect.py[extras]'**
 
      pip install "pybind11[global]"
     
