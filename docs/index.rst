@@ -85,8 +85,8 @@ Caldera Grid has the following requirements to be able to compile on windows.
  **-DPROJECT=eMosaic -DICM=ON -DPYTHON_EXECUTABLE=<path_to_anaconda3>\envs\<env_name>\python.exe -Dpybind11_DIR=<path_to_anaconda3>\envs\ 
  <env_name>\Library\share\cmake\pybind11**
 
-PROJECT - options are DirectXFC, eMosaic and EVs_at_Risk
-  ICM - needs to be ON, Caldera_Grid needs ICM module
+PROJECT - options are DirectXFC, eMosaic and EVs_at_RiskICM - needs to be ON, Caldera_Grid needs ICM module
+
 4) Configure CMake
   Saving CMakeSettings.json will kick off the configuration in the output tab
 5) Build libraries
