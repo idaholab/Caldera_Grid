@@ -40,7 +40,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 .. code-block:: bash
 
-conda activate Caldera
+  conda activate Caldera
  
 6)Install required python packages
 
