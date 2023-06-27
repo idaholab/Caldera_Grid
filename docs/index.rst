@@ -178,10 +178,16 @@ Notes for macOS
 ------------------
 To install anaconda:
 -------------------
-    **brew install --cask anaconda
+
+.. code-block:: bash
+
+    brew install --cask anaconda
+
     source /usr/local/anaconda3/bin/activate
+
     conda create -n caldera python=3.7
-    conda activate caldera**
+
+    conda activate caldera
 
 **Running Caldera Grid**
 -----------------------------
@@ -189,14 +195,21 @@ To install anaconda:
 
 2) Navigate to project folder
 
-  **cd <path_to_Caldera_Grid>**
+.. code-block:: bash
+
+  cd <path_to_Caldera_Grid>
 
 3) Activate Anaconda environment
 
-  **conda activate Caldera**
+.. code-block:: bash
+
+  conda activate Caldera
+
 4) Run simulation
 
-  **python start_execution.py**
+.. code-block:: bash
+
+  python start_execution.py
 
   start_execution.py is set up to run a simple example of EVs charging on the IEEE 34 node test feeder.
 
