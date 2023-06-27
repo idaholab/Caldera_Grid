@@ -30,21 +30,21 @@ Caldera Grid has the following requirements to be able to compile on windows.
 **Anaconda environment setup:** 
 ----------------------------------
 
-1)Open anaconda prompt
+1) Open anaconda prompt
 
-2)Create a new conda environment
+2) Create a new conda environment
 
 .. code-block:: bash
 
   conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)
 
-4)Activate the new conda environment
+4) Activate the new conda environment
 
 .. code-block:: bash
 
   conda activate Caldera
  
-6)Install required python packages
+6) Install required python packages
 
 .. code-block:: bash
 
@@ -63,36 +63,47 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 2) navigate to desired folder where you would like to download Caldera Grid
 
-  **cd <path_to_desired_download_folder>**
+.. code-block:: bash
+
+  cd <path_to_desired_download_folder>
 
 3) clone Caldera Grid from Github
 
-  **git clone https://github.com/idaholab/Caldera_Grid.git**
+.. code-block:: bash
+
+  git clone https://github.com/idaholab/Caldera_Grid.git
 
 4) Switch to develop branch. Develop branch has the most recent updates and bug fixes for Caldera Grid
 
-  **git switch develop**
+.. code-block:: bash
+
+  git switch develop
 
 **Compile Caldera Grid**
 
 1) Open the downloaded Caldera Grid folder in Visual Studio
 
  **File -> Open -> Folder -> <path_to_Caldera_Grid>**
+
 2) Open CMakeSettings.json
 
   **Project -> CMake Settings**
 
 3) Set flages for the cmake compilation process in the CMake command arguments test box
 
- **-DPROJECT=eMosaic -DICM=ON -DPYTHON_EXECUTABLE=<path_to_anaconda3>\envs\<env_name>\python.exe -Dpybind11_DIR=<path_to_anaconda3>\envs\ 
- <env_name>\Library\share\cmake\pybind11**
+.. code-block:: bash
+
+  -DPROJECT=eMosaic -DICM=ON -DPYTHON_EXECUTABLE=<path_to_anaconda3>\envs\<env_name>\python.exe -Dpybind11_DIR=<path_to_anaconda3>\envs\ 
+   <env_name>\Library\share\cmake\pybind11
 
 PROJECT - options are DirectXFC, eMosaic and EVs_at_RiskICM - needs to be ON, Caldera_Grid needs ICM module
 
 4) Configure CMake
   Saving CMakeSettings.json will kick off the configuration in the output tab
+
 5) Build libraries
   **build -> build all**
+
 6) Install libraries
   **build -> Install Grid**
 
