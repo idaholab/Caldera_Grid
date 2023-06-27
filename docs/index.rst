@@ -37,10 +37,10 @@ Caldera Grid has the following requirements to be able to compile on windows.
    **conda create -n Caldera python=3.9      # (recommended version >= 3.7.0)**
 
 4)Activate the new conda environment
- 
 .. code-block:: bash
-  conda activate Caldera
 
+conda activate Caldera
+ 
 6)Install required python packages
 
  .. code-block:: bash
