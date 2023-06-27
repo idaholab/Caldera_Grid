@@ -65,7 +65,7 @@ Caldera Grid has the following requirements to be able to compile on windows.
 
 .. code-block:: bash
 
-  cd `<path_to_desired_download_folder>
+  cd ``<``path_to_desired_download_folder>
 
 3) clone Caldera Grid from Github
 
