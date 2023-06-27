@@ -211,7 +211,7 @@ To install anaconda:
 
   python start_execution.py
 
-  start_execution.py is set up to run a simple example of EVs charging on the IEEE 34 node test feeder.
+**start_execution.py is set up to run a simple example of EVs charging on the IEEE 34 node test feeder.**
 
 **NOTE :** If the excution takes longer time to run, Try using release mode to build
 
