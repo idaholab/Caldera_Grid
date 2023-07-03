@@ -1,4 +1,4 @@
-Welcome to Caldera Grid
+Welcome to Caldera Grid's Documentation
 ===================================
 **Caldera Gird**:
 -------------
