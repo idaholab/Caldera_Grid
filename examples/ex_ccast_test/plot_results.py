@@ -30,7 +30,8 @@ plt.ylim(y_limits)
 plt.xlim(x_limits)
 plt.xticks([x for x in range(0, 25, 6)])
 plt.title("base_load_MW [red], total_demand_MW [blue]")
-plt.show()
+plt.savefig( os.path.join( outputs_dir, "profile_plot.png" ) )
+#plt.show()
 exit()
 
 
