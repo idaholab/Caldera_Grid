@@ -94,7 +94,16 @@ def caldera_ICM_federate( io_dir,
     L2_control_strategy_parameters_dict = datasets_dict[input_datasets.Caldera_control_strategy_parameters_dict]
     
     grid_timestep_sec = 4*time_delta    
-    ICM_obj = ICM_aux(base_dir, SE_CE_data_obj, baseLD_data_obj, global_parameters, L2_control_strategy_parameters_dict, grid_timestep_sec, customized_pev_ramping, create_charge_profile_library, CE_queuing_inputs, ensure_pev_charge_needs_met_for_ext_control_strategy)
+    ICM_obj = ICM_aux( io_dir.base_dir,
+                       SE_CE_data_obj,
+                       baseLD_data_obj,
+                       global_parameters,
+                       L2_control_strategy_parameters_dict,
+                       grid_timestep_sec,
+                       customized_pev_ramping,
+                       create_charge_profile_library,
+                       CE_queuing_inputs,
+                       ensure_pev_charge_needs_met_for_ext_control_strategy )
         
     #=====================================
     # Send pev P=0 and Q=0 to OpenDSS
