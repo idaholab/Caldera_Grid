@@ -154,7 +154,7 @@ class load_input_files:
             break
             
         if len(files_list) == 1:
-            file_path = dir_path + '/' + files_list[0]
+            file_path = os.path.join( dir_path, files_list[0] )
             
             if os.stat(file_path).st_size > 0:
                 is_successful = True
@@ -165,7 +165,7 @@ class load_input_files:
     
     
     def __get_filepaths(self, input_dir):        
-        parameters_dir = input_dir + '/parameters'
+        parameters_dir = os.path.join( input_dir, "parameters" )
         
         X = []
         X.append((input_dir, 'CE*.csv'))
@@ -195,12 +195,12 @@ class load_input_files:
             if tmp_is_successful:
                 Y.append(file_path)
             else:
-                file_paths_with_problems.append(dir_path + '/' + file_search_name)
+                file_paths_with_problems.append( os.path.join( dir_path, file_search_name ) )
         
         #-----------------------
         
         filepaths = self.filepaths_class()
-        filepaths.console_messages = input_dir + '/error_messages.txt'
+        filepaths.console_messages = os.path.join( input_dir, "error_messages.txt" )
         
         f_out = open(filepaths.console_messages, 'w')
         f_out.write('No Errors.')
@@ -230,13 +230,13 @@ class load_input_files:
         return (file_paths_with_problems, filepaths)
     
     
-    def load(self, base_dir):
+    def load(self, input_dir):
         console_error_message = "Caldera:  Not Initialized Check Log Files." + '\n'
     
         #------------------------------
         #       Get File Paths
         #------------------------------
-        (file_paths_with_problems, filepaths) = self.__get_filepaths(base_dir)
+        (file_paths_with_problems, filepaths) = self.__get_filepaths(input_dir)
         
         if len(file_paths_with_problems) != 0:
             console_error_message = '\n' + "Duplicate, Missing or Empty Input Files." + '\n'
@@ -331,7 +331,7 @@ class load_input_files:
         #------------------------------
         #  Load EV_EVSE_inventory files
         #------------------------------
-        self.load_EV_EVSE_inventory = load_EV_EVSE_inventory(base_dir)
+        self.load_EV_EVSE_inventory = load_EV_EVSE_inventory(input_dir)
         EV_EVSE_inventory = self.load_EV_EVSE_inventory.get_EV_EVSE_inventory()
 
         #------------------------------
@@ -527,7 +527,7 @@ class load_SE_CE_input_files:
             if len(df.index) < 2:
                 errors.append("NA, There must be at least 2 Supply Equipment defined.")
             
-            if len(errors) == 0:                
+            if len(errors) == 0:
                 grid_node_id = df.iloc[:,4].astype('str').apply(lambda a: a.strip())
                 grid_node_id = grid_node_id.apply(lambda a: 'nan' if a == '' else a)
                 df.iloc[:,4] = grid_node_id
@@ -615,7 +615,9 @@ class load_SE_CE_input_files:
                                 SE_group_of_last_loaded_SE = SE_group[i]
                             
                     if i > 0 and len(SE_configuration_list) > 0:
-                        SE_group_configuration_list.append(SE_group_configuration(SE_group_of_last_loaded_SE, SE_configuration_list))
+                        ### NOTE: (JUL 12, 2023) I (Steven) HAD A MALLOC ERROR HAPPEN (when calling the C++ function 'SE_group_configuration')
+                        ###       BUT THEN IT WENT AWAY WITHOUT REALLY CHANGING ANYTHING. THIS MIGHT BE A SIGN OF A SUBTLE MEMORY PROBLEM.
+                        SE_group_configuration_list.append( SE_group_configuration(SE_group_of_last_loaded_SE, SE_configuration_list) )
                         SE_configuration_list = []
                     
                     #------------------------
