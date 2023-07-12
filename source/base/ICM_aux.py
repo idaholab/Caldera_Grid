@@ -4,17 +4,16 @@ from Caldera_globals import pev_charge_ramping_workaround, interface_to_SE_group
 from Helper import build_L2_control_strategy_parameters
 from global_aux import input_datasets, Caldera_message_types
 from time import time
+import os
 
 class ICM_aux:
 
-    def __init__(self, base_dir, SE_CE_data_obj, baseLD_data_obj, global_parameters, L2_control_strategy_parameters_dict, grid_timestep_sec, customized_pev_ramping, create_charge_profile_library, CE_queuing_inputs, ensure_pev_charge_needs_met):
+    def __init__(self, io_dir, SE_CE_data_obj, baseLD_data_obj, global_parameters, L2_control_strategy_parameters_dict, grid_timestep_sec, customized_pev_ramping, create_charge_profile_library, CE_queuing_inputs, ensure_pev_charge_needs_met):
         self.grid_timestep_sec = grid_timestep_sec
   
         #------------------------
 
         start_time = time()
-        
-        input_path = base_dir + "/inputs"
 
         #-----------------
 
@@ -55,7 +54,7 @@ class ICM_aux:
 
         #-----------------
 
-        self.ICM_obj = interface_to_SE_groups(input_path, ICM_inputs)
+        self.ICM_obj = interface_to_SE_groups(io_dir.inputs_dir, ICM_inputs)
 
         print('Time to initialize ICM (sec): {}'.format(time()-start_time))        
 

@@ -94,7 +94,7 @@ def caldera_ICM_federate( io_dir,
     L2_control_strategy_parameters_dict = datasets_dict[input_datasets.Caldera_control_strategy_parameters_dict]
     
     grid_timestep_sec = 4*time_delta    
-    ICM_obj = ICM_aux( io_dir.base_dir,
+    ICM_obj = ICM_aux( io_dir,
                        SE_CE_data_obj,
                        baseLD_data_obj,
                        global_parameters,
