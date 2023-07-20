@@ -1,0 +1,35 @@
+name: C/C++ CI
+
+on:
+  push:
+    
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+   
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build and run Docker container
+        run: |
+          docker run sara2301/caldera_cdm:latest2
+      - name: Install packages
+        run: |
+          pip install "pybind11[global]"
+          pip install pandas
+    
+      - name: Configure build
+        run: |
+          mkdir -p build
+          cd build
+          rm -rf build
+          pwd
+          cmake -DPROJECT=eMosaic -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ../
+          make -j 4
+          make install
+      - name: Run ctest
+        run: |
+          ls
+          cd build/unittests
+          ctest --output-on-failure
