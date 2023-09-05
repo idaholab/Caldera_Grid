@@ -1,0 +1,56 @@
+name: C/C++ CI
+
+on:
+   push
+jobs:
+  example_matrix:
+    strategy:
+      matrix:
+        os: [windows-latest]
+        python-version: ["3.10"]
+        compiler: [gcc-12]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash # Use bash for all run steps by default
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install compiler
+        id: install_cc
+        uses: rlalik/setup-cpp-compiler@master
+        with:
+          compiler: ${{ matrix.compiler }}
+
+      - name: Install dependencies
+        run: |
+          pip install pandas
+          pip install "pybind11[global]"
+          pip install cvxopt
+          pip install "OpenDSSDirect.py[extras]"
+          pip install helics
+          pip install numpy
+          
+      - name: Configure build
+        run: |
+            # Windows specific commands
+            mkdir build
+            cd build
+            cmake  -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
+            cmake --build . --config Release --parallel 4
+            cmake --install .
+         
+          
+      - name: Run ctest
+        run: |
+    
+            dir
+            cd build
+            cd unittests
+            dir
+            ctest --output-on-failure -C Release
