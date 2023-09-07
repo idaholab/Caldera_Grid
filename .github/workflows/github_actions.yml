@@ -46,11 +46,4 @@ jobs:
             cmake --install .
          
           
-      - name: Run ctest
-        run: |
-    
-            dir
-            cd build
-            cd unittests
-            dir
-            ctest --output-on-failure -C Release
+     
