@@ -1,7 +1,8 @@
 name: C/C++ CI
 
 on:
-   push
+  push
+
 jobs:
   example_matrix:
     strategy:
@@ -38,12 +39,12 @@ jobs:
           
       - name: Configure build
         run: |
-            # Windows specific commands
-            mkdir build
-            cd build
-            cmake  -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
-            cmake --build . --config Release --parallel 4
-            cmake --install .
-         
-          
-     
+          # Windows specific commands
+          mkdir build
+          cd build
+          cmake -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
+          cmake --build . --config Release --parallel 4
+          cmake --install .
+
+      - name: Start Execute Script
+        run: python start_execute.py
