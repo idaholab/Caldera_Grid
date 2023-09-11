@@ -25,7 +25,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          run: |
           pip install pandas
           pip install "pybind11[global]"
           pip install cvxopt
