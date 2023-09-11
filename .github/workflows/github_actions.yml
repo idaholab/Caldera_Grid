@@ -42,7 +42,7 @@ jobs:
           # Windows specific commands
           mkdir build
           cd build
-          cmake -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
+          cmake -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
           cmake --build . --config Release --parallel 4
           cmake --install .
 
