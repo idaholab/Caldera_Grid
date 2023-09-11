@@ -32,12 +32,12 @@ jobs:
           pip install helics
           pip install numpy
 
-      - name: Configure build with MSVC
+      - name: Configure build
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          # Windows specific commands
           mkdir build
           cd build
-          cmake -G "Visual Studio 16 2019" -A x64 -DICM=ON -DCMAKE_INSTALL_PREFIX=%USERPROFILE%/my-project-installation ..
+          cmake -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
           cmake --build . --config Release --parallel 4
           cmake --install .
 
