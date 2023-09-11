@@ -8,8 +8,8 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        python-version: ["3.10"]
-        compiler: [gcc-12]
+        python-version: ["3.6",3.10"]
+        compiler: [MSVC]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
