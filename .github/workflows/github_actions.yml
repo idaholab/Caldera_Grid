@@ -25,7 +25,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          run: |
+          pip install pandas
+          pip install "pybind11[global]"
+          pip install cvxopt
+          pip install "OpenDSSDirect.py[extras]"
+          pip install helics
+          pip install numpy
 
       - name: Configure build with MSVC
         run: |
