@@ -8,12 +8,13 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        python-version: ["3.11","3.10","3.6"]
-        compiler: [MSVC]
+        python-version: ["3.10","3.11"]
+
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        shell: bash # Use bash for all run steps by default
+        shell: cmd # Switch to cmd since we are on Windows and using MSVC
+
     steps:
       - uses: actions/checkout@v3
 
@@ -21,12 +22,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install compiler
-        id: install_cc
-        uses: rlalik/setup-cpp-compiler@master
-        with:
-          compiler: ${{ matrix.compiler }}
 
       - name: Install dependencies
         run: |
@@ -36,7 +31,7 @@ jobs:
           pip install "OpenDSSDirect.py[extras]"
           pip install helics
           pip install numpy
-          
+
       - name: Configure build
         run: |
           # Windows specific commands
