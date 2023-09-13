@@ -1,7 +1,7 @@
 name: C/C++ CI
 
 on:
-  push
+  push:
 
 jobs:
   example_matrix:
@@ -34,20 +34,20 @@ jobs:
 
       - name: Configure build
         run: |
-            mkdir -p build
-            cd build
-            rm -rf *
-            pwd
-            export CC=${{ steps.install_cc.outputs.cc }}
-            export CXX=${{ steps.install_cc.outputs.cxx }}
-            echo ${CC}
-            echo ${CXX}
-            if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
-              sudo apt install libomp-dev
-            fi
-            cmake -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
-            make -j 4
-            make install
+          mkdir -p build
+          cd build
+          rm -rf *
+          pwd
+          export CC=${{ steps.install_cc.outputs.cc }}
+          export CXX=${{ steps.install_cc.outputs.cxx }}
+          echo ${CC}
+          echo ${CXX}
+          if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
+            sudo apt install libomp-dev
+          fi
+          cmake -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
+          make -j 4
+          make install
 
       - name: Start Execute Script
         run: python start_execution.py
