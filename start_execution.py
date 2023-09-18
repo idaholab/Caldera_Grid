@@ -36,8 +36,11 @@ from control_strategy_B import control_strategy_B
 from control_strategy_C import control_strategy_C
 
 #================================================
-
+print("Line 39")
 if __name__ == '__main__':
+
+    #print 
+    print("In Line 43")
     
     grid_timestep_sec = 60
     start_simulation_unix_time = 6*3600
@@ -89,10 +92,10 @@ if __name__ == '__main__':
     num_of_federates += 1   # control_strategy_A
     num_of_federates += 1   # control_strategy_B
     num_of_federates += 1   # control_strategy_C
-    
+    print("In Line 95")
     broker = subprocess.Popen(['helics_broker', '--loglevel=no_print', '-f{}'.format(num_of_federates)])
     #broker = subprocess.Popen(['helics_broker', '-f{}'.format(num_of_federates)])
-    
+    print("In Line 98")
     #---------------------
     
     processes = []
