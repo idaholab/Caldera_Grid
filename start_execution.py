@@ -151,6 +151,7 @@ if __name__ == '__main__':
 
     for p in processes:
         p.start()
-
+    print("line 154")
     for p in processes:
         p.join()
+    print("line 157")
