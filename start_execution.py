@@ -36,7 +36,7 @@ from control_strategy_B import control_strategy_B
 from control_strategy_C import control_strategy_C
 
 #================================================
-print("Line 39")
+print("Line 39:");print(__name__)
 if __name__ == '__main__':
 
     #print 
