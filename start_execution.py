@@ -1,5 +1,5 @@
 import sys
-
+print("In Line 2")
 # This should never be inserted at index = 0 because  
 # the path at index = 0 should not be changed because
 # some libraries require this.
@@ -99,23 +99,23 @@ if __name__ == '__main__':
     #---------------------
     
     processes = []
-
+    print("In Line 102")
     # Load Input Files Federate
     json_config_file_name = 'Load_Input_Files.json'
     p = Process(target=load_inputs_federate, args=(base_dir, json_config_file_name, simulation_time_constraints,), name="load_inputs_federate")
     processes.append(p)
-    
+    print("In Line 107")
     # Caldera ICM Federate
     json_config_file_name = 'Caldera_ICM.json'
     create_charge_profile_library = True 
     p = Process(target=caldera_ICM_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs,), name="caldera_ICM_federate")
     processes.append(p)
-    
+    print("In Line 113")
     # OpenDSS Federate
     json_config_file_name = 'OpenDSS.json'
     p = Process(target=open_dss_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, use_opendss,), name="open_dss_federate")
     processes.append(p)
-	
+    print("In Line 118")	
     #---------------------------
     #   ES500 Control Federate
     #---------------------------
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     ES500_obj = ES500_aux(base_dir, simulation_time_constraints)    
     p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
     processes.append(p)
-    
+    print("In Line 126")
     #-------------------------------
     #   Control Strategy_A Federate
     #-------------------------------
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     CS_A_obj = control_strategy_A(base_dir, simulation_time_constraints)    
     p = Process(target=typeA_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
     processes.append(p)
-    
+    print("In Line 134")
     #-------------------------------
     #   Control Strategy_B Federate
     #-------------------------------
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     CS_B_obj = control_strategy_B(base_dir, simulation_time_constraints)    
     p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
     processes.append(p)
-    
+    print("In Line 142")
     #-------------------------------
     #   Control Strategy_C Federate
     #-------------------------------
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     CS_C_obj = control_strategy_C(base_dir, simulation_time_constraints)
     p = Process(target=typeB_control_federate, args=(base_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
     processes.append(p)
-    
+    print("In Line 150")
 
     for p in processes:
         p.start()
