@@ -244,7 +244,7 @@ class load_input_files:
                 console_error_message += '    ' + x + '\n'
             
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (False, None, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
     
         #------------------------------
         #  Read global Parameters
@@ -254,7 +254,7 @@ class load_input_files:
    
         if not is_successful:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (False, None, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
     
         #------------------------------
         # Read Control Strategy Files
@@ -326,7 +326,7 @@ class load_input_files:
         
         if not is_successful:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (False, None, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
         
         #------------------------------
         #  Load EV_EVSE_inventory files
@@ -342,7 +342,7 @@ class load_input_files:
         
         if not is_successful:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (False, None, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
         
         #------------------------------
         #      Read baseLD_ file
@@ -352,7 +352,7 @@ class load_input_files:
 
         if not is_successful:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict)
+            return (False, None, None, None, None, None)  # (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
         
         #---------------------------------------------
         #  Assign Control Strategies to Charge Events
@@ -428,7 +428,7 @@ class load_input_files:
             return (is_successful, SE_CE_data_obj, baseLD_data_obj, global_parameters, control_strategy_parameters_dict, EV_EVSE_inventory)
         else:
             write_error_message_to_console_and_consoleFile(console_error_message, filepaths.console_messages)
-            return (False, None, None, None, None)       
+            return (False, None, None, None, None, None)       
     
     
 #=============================================================
