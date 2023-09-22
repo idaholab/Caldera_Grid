@@ -149,8 +149,8 @@ if __name__ == '__main__':
     processes.append(p)
     print("In Line 150")
 
-    # for p in processes:
-    #     p.start()
+    for p in processes:
+        p.start()
     print("line 154")
     for p in processes:
         p.join()
