@@ -2,6 +2,7 @@ import helics as h
 from ICM_aux import ICM_aux
 from global_aux import input_datasets
 from Helics_Helper import send, receive, cleanup
+import time
 
 def caldera_ICM_federate(base_dir, json_config_file_name, simulation_time_constraints, customized_pev_ramping, create_charge_profile_library, ensure_pev_charge_needs_met_for_ext_control_strategy, CE_queuing_inputs):
 
@@ -119,7 +120,14 @@ def caldera_ICM_federate(base_dir, json_config_file_name, simulation_time_constr
     
     federate_name = h.helicsFederateGetName(fed)
     print('{} Federate Started.'.format(federate_name))
+    
+    count = 0
+    
     while True:
+        
+        print("In 'caldera_ICM_federate', loop count: ",count)
+        count += 1
+        
         #=====================================
         #         	Sub Step 1 
         #=====================================
@@ -127,65 +135,113 @@ def caldera_ICM_federate(base_dir, json_config_file_name, simulation_time_constr
         #-------------------------------------
         #     Process TypeB Control-Info
         #-------------------------------------
-        msg_obj = receive(typeB_control_endpoint)     
+        start_timer = time.time()
+        msg_obj = receive(typeB_control_endpoint)   
+        end_timer = time.time()  
+        print("    1:",(end_timer-start_timer))
         
+        start_timer = time.time()
         for source, msg_dict in msg_obj.items():
             ICM_obj.process_control_messages(federate_time, msg_dict)
+        end_timer = time.time()  
+        print("    2:",(end_timer-start_timer))
             
         #=====================================
         #         	Sub Step 2        
-        #=====================================        
+        #=====================================    
+        
+        start_timer = time.time()
         federate_time = h.helicsFederateRequestNextStep(fed)
+        end_timer = time.time()  
+        print("    3:",(end_timer-start_timer))  ### *************************************
         
         #-------------------------------------
         # Read node voltages from OpenDSS
         #-------------------------------------
+        start_timer = time.time()
         msg_obj = receive(openDSS_endpoint_local)
+        end_timer = time.time()  
+        print("    4:",(end_timer-start_timer))
+        
+        start_timer = time.time()
         node_puV = msg_obj[openDSS_endpoint_remote]
+        end_timer = time.time()  
+        print("    5:",(end_timer-start_timer))
         
         #-------------------------------------
         # Calculate pev P and Q
         #-------------------------------------
+        
+        start_timer = time.time()
         node_pevPQ = ICM_obj.get_charging_power(federate_time, node_puV)
+        end_timer = time.time()  
+        print("    6:",(end_timer-start_timer))
         
         #-------------------------------------
         # Send pev P and Q to OpenDSS
         #-------------------------------------
+        start_timer = time.time()
         send(node_pevPQ, openDSS_endpoint_local, openDSS_endpoint_remote)
+        end_timer = time.time() 
+        print("    7:",(end_timer-start_timer)) 
         
         #=====================================
         #         	Sub Step 3
-        #=====================================		
+        #=====================================	
+        
+        start_timer = time.time()
         federate_time = h.helicsFederateRequestNextStep(fed)
+        end_timer = time.time() 
+        print("    8:",(end_timer-start_timer))    ### *************************************
         
         #-------------------------------------
         #   Read & Process TypeB Messages
         #-------------------------------------
+        start_timer = time.time()
+        send_count = 0
         msg_obj = receive(typeB_control_endpoint)
         for source, msg_dict in msg_obj.items():
             msg_dict = ICM_obj.process_control_messages(federate_time, msg_dict)
             if len(msg_dict) != 0:
                 send(msg_dict, typeB_control_endpoint, source)
+                send_count += 1
+        end_timer = time.time() 
+        print("    9:",(end_timer-start_timer), "send_count: ", send_count) 
 
         #=====================================
         #         	Sub Step 4
         #=====================================
+        
+        start_timer = time.time()
         federate_time = h.helicsFederateRequestNextStep(fed)
+        end_timer = time.time() 
+        print("    10:",(end_timer-start_timer))   ### *************************************
         
         #-------------------------------------
         #   Read & Process TypeA Messages
         #-------------------------------------
+        start_timer = time.time()
+        send_count = 0
         msg_obj = receive(typeA_control_endpoint)
         for source, msg_dict in msg_obj.items():
             msg_dict = ICM_obj.process_control_messages(federate_time, msg_dict)
             if len(msg_dict) != 0:
                 send(msg_dict, typeA_control_endpoint, source)
+                send_count += 1
+        end_timer = time.time() 
+        print("    11:",(end_timer-start_timer), "send_count: ", send_count) 
+    
 
         #=====================================
         #      Advance to Next Time Step
         #=====================================
+        
+        start_timer = time.time()
         federate_time = h.helicsFederateRequestNextStep(fed)
-
+        end_timer = time.time() 
+        print("    12:",(end_timer-start_timer))   ### *************************************
+        
+        
         if federate_time >= end_simulation_unix_time:
             break
 

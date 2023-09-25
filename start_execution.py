@@ -37,6 +37,8 @@ from control_strategy_C import control_strategy_C
 
 #================================================
 
+print("In start_execution.py, __name__: ",__name__)
+
 if __name__ == '__main__':
     
     grid_timestep_sec = 60
