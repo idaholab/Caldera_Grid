@@ -1,4 +1,4 @@
-# Caldera_Grid
+# Caldera Grid
 
 Caldera and OpenDSS co-simulation platform using HELICS 
 
