@@ -20,6 +20,7 @@ sys.path.insert(index+6, './source/customized_inputs/eMosaic')
 import os, copy
 
 from multiprocessing import Process
+from multiprocessing import set_start_method
 import subprocess
 
 from Caldera_ICM_federate import caldera_ICM_federate
@@ -40,6 +41,10 @@ from control_strategy_C import control_strategy_C
 print("In start_execution.py, __name__: ",__name__)
 
 if __name__ == '__main__':
+    
+    print("calling 'set_start_method'...")
+    set_start_method('spawn')
+    #set_start_method('fork')
     
     grid_timestep_sec = 60
     start_simulation_unix_time = 6*3600
