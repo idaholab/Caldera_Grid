@@ -1,6 +1,8 @@
 name: C/C++ CI
 on:
   push:
+   branches:
+    testingmacos
 
 jobs:
   example_matrix:
