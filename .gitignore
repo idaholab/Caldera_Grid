@@ -15,3 +15,7 @@ outputs/*.csv
 CMakeSettings.json
 .vs/
 .vscode/
+
+# MacOS
+.DS_Store
+

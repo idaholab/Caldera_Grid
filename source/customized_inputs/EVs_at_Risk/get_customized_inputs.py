@@ -1,5 +1,5 @@
 
-from Caldera_global import pev_charge_ramping, supply_equipment_enum, vehicle_enum, supply_equipment_is_L1, supply_equipment_is_L2
+from Caldera_globals import pev_charge_ramping
 from global_aux import container_class
 
 

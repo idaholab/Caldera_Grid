@@ -1,10 +1,12 @@
 
 from numpy.random import Generator, PCG64
 
-from Caldera_global import supply_equipment_is_L2, L2_control_strategies_enum, is_XFC_charge
-from Caldera_global import L2_control_strategy_parameters, ES100_L2_parameters, ES110_L2_parameters, ES200_L2_parameters, ES300_L2_parameters, normal_random_error, ES500_L2_parameters
-from Caldera_global import VS100_L2_parameters, VS200_L2_parameters, VS300_L2_parameters
-from Caldera_global import stop_charging_decision_metric
+from Caldera_globals import L2_control_strategies_enum, L2_control_strategy_parameters
+from Caldera_globals import ES100_L2_parameters, ES110_L2_parameters, ES200_L2_parameters 
+from Caldera_globals import ES300_L2_parameters, normal_random_error, ES500_L2_parameters
+from Caldera_globals import VS100_L2_parameters, VS200_L2_parameters, VS300_L2_parameters
+from Caldera_globals import stop_charging_decision_metric
+from Caldera_models import EVSE_level
 
 
 class container_class:
@@ -250,9 +252,9 @@ def build_L2_control_strategy_parameters(L2_control_strategy_parameters_dict):
     return return_val
 
 
-def assign_control_strategies_to_CE(control_strategies, charge_event, SEid_to_SE_type, L2_control_strategy_parameters_dict):
+def assign_control_strategies_to_CE(EVSE_inventory, control_strategies, charge_event, SEid_to_SE_type, L2_control_strategy_parameters_dict):
     
-    if supply_equipment_is_L2(SEid_to_SE_type[charge_event.SE_id]):
+    if EVSE_inventory[SEid_to_SE_type[charge_event.SE_id]].get_level() == EVSE_level.L2: #supply_equipment_is_L2(SEid_to_SE_type[charge_event.SE_id]):
         ES_enum = control_strategies.ES_control_strategy
         VS_enum = control_strategies.VS_control_strategy
         NA_enum = L2_control_strategies_enum.NA

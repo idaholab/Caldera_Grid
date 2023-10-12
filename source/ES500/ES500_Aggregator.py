@@ -14,7 +14,7 @@ import numpy as np
 #from docplex.mp.advmodel import AdvModel as Model      # cplex model
 
 from ES500_Aggregator_Helper import ES500_aggregator_helper
-from Caldera_global import ES500_charge_cycling_control_boundary_point
+from Caldera_globals import ES500_charge_cycling_control_boundary_point
 
 #=================================================================================
 #                               Helper Functions

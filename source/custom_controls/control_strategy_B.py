@@ -1,15 +1,15 @@
 
 from math import floor
 
-from Caldera_global import L2_control_strategies_enum, supply_equipment_enum, vehicle_enum, SE_setpoint
+from Caldera_globals import L2_control_strategies_enum, SE_setpoint
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeB_control
 
 
 class control_strategy_B(typeB_control):
     
-    def __init__(self, base_dir, simulation_time_constraints):
-        super().__init__(base_dir, simulation_time_constraints)
+    def __init__(self, io_dir, simulation_time_constraints):
+        super().__init__(io_dir, simulation_time_constraints)
     
     def get_input_dataset_enum_list(self):
         return [input_datasets.SE_group_configuration, input_datasets.SE_group_charge_event_data, input_datasets.SEid_to_SE_type]

@@ -1,12 +1,10 @@
-
 import enum
 
-from Caldera_global import charge_event_data, get_vehicle_enum, supply_equipment_is_L2
-from Caldera_global import L2_control_strategies_enum, pev_is_compatible_with_supply_equipment
-from Caldera_global import stop_charging_criteria, control_strategy_enums
+from Caldera_globals import charge_event_data, L2_control_strategies_enum
+from Caldera_globals import stop_charging_criteria, control_strategy_enums
+from Caldera_models import pev_SE_pair, EVSE_level
 from Helper import assign_control_strategies_to_CE
 from load_input_files import get_control_strategy_enums
-
 
 
 class container_class:
@@ -74,12 +72,16 @@ class non_pev_feeder_load:
 
 class charge_event_builder:
     
-    def __init__(self, SEid_to_SE_type, SEid_to_SE_group, L2_control_strategies_to_include, control_strategy_parameters_dict):
+    def __init__(self, EV_EVSE_inventory, SEid_to_SE_type, SEid_to_SE_group, L2_control_strategies_to_include, control_strategy_parameters_dict):
         self.SEid_to_SE_type = SEid_to_SE_type
         self.SEid_to_SE_group = SEid_to_SE_group
         self.L2_control_strategies_to_include = L2_control_strategies_to_include
         self.control_strategy_parameters_dict = control_strategy_parameters_dict
-        
+        self.EV_EVSE_inventory = EV_EVSE_inventory
+        self.EV_inventory = self.EV_EVSE_inventory.get_EV_inventory()
+        self.EVSE_inventory = self.EV_EVSE_inventory.get_EVSE_inventory()
+
+
     def get_charge_event(self, charge_event_id, SE_id, vehicle_type, start_time_hrs, end_time_hrs, start_SOC, end_SOC, ES_str, VS_str, Ext_str):
         errors = []
         
@@ -89,7 +91,8 @@ class charge_event_builder:
         start_SOC = start_SOC*100.0
         end_SOC = end_SOC*100.0
 
-        (conversion_successfull, vehicle_enum) = get_vehicle_enum(vehicle_type)
+        conversion_successfull = True if vehicle_type in self.EV_inventory else False
+        vehicle_enum = vehicle_type
         
         if not conversion_successfull:
             errors.append("Invalid vehicle_type: {}".format(vehicle_type))
@@ -108,7 +111,8 @@ class charge_event_builder:
             errors.append("Invalid soc values.")
         
         if len(errors) == 0:
-            if not pev_is_compatible_with_supply_equipment(vehicle_enum, self.SEid_to_SE_type[SE_id]):
+            EV_EVSE_combination = pev_SE_pair(vehicle_enum, self.SEid_to_SE_type[SE_id])
+            if not self.EV_EVSE_inventory.pev_is_compatible_with_supply_equipment(EV_EVSE_combination):
                 errors.append("Incompatible Supply Equipment and PEV types.")
     
         #-------------------------------------
@@ -130,7 +134,8 @@ class charge_event_builder:
             if len(tmp_errors) > 0:
                 errors += tmp_errors
             else:
-                if not supply_equipment_is_L2(self.SEid_to_SE_type[SE_id]):
+                
+                if not self.EVSE_inventory[self.SEid_to_SE_type[SE_id]].get_level() == EVSE_level.L2:
                     ES_enum = control_strategies.ES_control_strategy
                     VS_enum = control_strategies.VS_control_strategy
                     NA_enum = L2_control_strategies_enum.NA
@@ -138,7 +143,7 @@ class charge_event_builder:
                         errors.append("L2 control strategy assigned to non L2 charge.")
                 
                 if len(errors) == 0:
-                    assign_control_strategies_to_CE(control_strategies, charge_event, self.SEid_to_SE_type, self.control_strategy_parameters_dict)
+                    assign_control_strategies_to_CE(self.EVSE_inventory, control_strategies, charge_event, self.SEid_to_SE_type, self.control_strategy_parameters_dict)
 
         #-------------------------------------
         

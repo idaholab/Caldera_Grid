@@ -2,8 +2,8 @@
 import pandas as pd
 from numpy import random
 
-from Caldera_global import L2_control_strategies_enum
-from Caldera_global import ES500_aggregator_charging_forecast
+from Caldera_globals import L2_control_strategies_enum
+from Caldera_globals import ES500_aggregator_charging_forecast
 from Caldera_ICM_Aux import get_value_from_normal_distribution
 
 

@@ -1,0 +1,9 @@
+SE_id,SE_type,lon,lat,node_id,SE_group,location_type
+1,L2_7200W,-93.1,45.2,L2_7200W,10,U
+2,L2_17280W,-93.1,45.2,L2_17280W,10,U
+3,xfc_20kW,-93.1,45.2,xfc_20kW,10,U
+4,xfc_50kW,-93.1,45.2,xfc_50kW,10,U
+5,xfc_90kW,-93.1,45.2,xfc_90kW,10,U
+6,xfc_150kW,-93.1,45.2,xfc_150kW,10,U
+7,xfc_180kW,-93.1,45.2,xfc_180kW,10,U
+8,xfc_450kW,-93.1,45.2,xfc_450kW,10,U

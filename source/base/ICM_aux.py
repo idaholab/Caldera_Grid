@@ -1,21 +1,22 @@
 
 from Caldera_ICM import interface_to_SE_groups
-from Caldera_global import pev_charge_ramping_workaround
+from Caldera_globals import pev_charge_ramping_workaround, interface_to_SE_groups_inputs
 from Helper import build_L2_control_strategy_parameters
 from global_aux import input_datasets, Caldera_message_types
 from time import time
+import os
 
 class ICM_aux:
 
-    def __init__(self, SE_CE_data_obj, baseLD_data_obj, global_parameters, L2_control_strategy_parameters_dict, grid_timestep_sec, customized_pev_ramping, create_charge_profile_library, CE_queuing_inputs):
+    def __init__(self, io_dir, SE_CE_data_obj, baseLD_data_obj, global_parameters, L2_control_strategy_parameters_dict, grid_timestep_sec, customized_pev_ramping, create_charge_profile_library, CE_queuing_inputs, ensure_pev_charge_needs_met):
         self.grid_timestep_sec = grid_timestep_sec
   
         #------------------------
-        
-        self.ICM_obj = interface_to_SE_groups()
-        
+
+        start_time = time()
+
         #-----------------
-        
+
         ramping_by_pevType_seType = []        
         for ((pev_type, SE_type), pev_charge_ramping_obj) in customized_pev_ramping.ramping_by_pevType_seType.items():
             X = pev_charge_ramping_workaround()
@@ -23,29 +24,46 @@ class ICM_aux:
             X.pev_type = pev_type
             X.SE_type = SE_type
             ramping_by_pevType_seType.append(X)
-        
+
         #-----------------
-        start_time = time()
-        self.ICM_obj.initialize(create_charge_profile_library, customized_pev_ramping.ramping_by_pevType_only, ramping_by_pevType_seType)
-        print('Time to initialize ICM (sec): {}'.format(time()-start_time))
-        
-        L2_control_strategy_parameters = build_L2_control_strategy_parameters(L2_control_strategy_parameters_dict)
-        self.ICM_obj.initialize_L2_control_strategy_parameters(L2_control_strategy_parameters)
-        
+
         data_start_unix_time = baseLD_data_obj.data_start_unix_time
         data_timestep_sec = baseLD_data_obj.data_timestep_sec
         actual_load_akW = baseLD_data_obj.actual_load_akW 
         forecast_load_akW = baseLD_data_obj.forecast_load_akW
         adjustment_interval_hrs = global_parameters['base_load_forecast_adjust_interval_hrs']
-        self.ICM_obj.initialize_baseLD_forecaster(data_start_unix_time, data_timestep_sec, actual_load_akW, forecast_load_akW, adjustment_interval_hrs)
+
+        #-----------------
+
+        L2_control_strategy_parameters = build_L2_control_strategy_parameters(L2_control_strategy_parameters_dict)
+
+        #-----------------
+
+        ICM_inputs = interface_to_SE_groups_inputs(create_charge_profile_library, 
+                                                   customized_pev_ramping.ramping_by_pevType_only,
+                                                   ramping_by_pevType_seType,
+                                                   CE_queuing_inputs,
+                                                   SE_CE_data_obj.SE_group_configuration_list,
+                                                   data_start_unix_time,
+                                                   data_timestep_sec,
+                                                   actual_load_akW,
+                                                   forecast_load_akW,
+                                                   adjustment_interval_hrs,
+                                                   L2_control_strategy_parameters,
+                                                   ensure_pev_charge_needs_met)
+
+        #-----------------
+
+        self.ICM_obj = interface_to_SE_groups(io_dir.inputs_dir, ICM_inputs)
+
+        print('Time to initialize ICM (sec): {}'.format(time()-start_time))        
+
+        #-----------------
         
-        self.ICM_obj.initialize_infrastructure(CE_queuing_inputs, SE_CE_data_obj.SE_group_configuration_list)
         self.ICM_obj.add_charge_events_by_SE_group(SE_CE_data_obj.SE_group_charge_events)
     
     
-    def set_ensure_pev_charge_needs_met_for_ext_control_strategy(self, ensure_pev_charge_needs_met):
-        self.ICM_obj.set_ensure_pev_charge_needs_met_for_ext_control_strategy(ensure_pev_charge_needs_met)
-        
+   
     
     def get_charging_power(self, now_unix_time, node_Vrms):
         prev_unix_time = now_unix_time - self.grid_timestep_sec
