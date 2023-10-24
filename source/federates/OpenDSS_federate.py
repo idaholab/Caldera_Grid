@@ -9,7 +9,7 @@ def open_dss_federate(io_dir, json_config_file_name, simulation_time_constraints
     #=====================================
     #         Setup Helics
     #=====================================
-    config_file_path = os.path.join( io_dir.base_dir, "inputs/helics_config/", json_config_file_name )
+    config_file_path = os.path.join( io_dir.base_dir, os.path.join(io_dir.inputs_dir,"helics_config"), json_config_file_name )
     fed = h.helicsCreateCombinationFederateFromConfig(config_file_path)
     
     sub_data_loaded = h.helicsFederateGetInputByTarget(fed, 'Load_Input_Files/data_loaded')
