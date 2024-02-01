@@ -1,0 +1,20 @@
+{
+    "fossil_fuel": {
+        "LCOE": 75.86,
+        "ramp_up": 0.25,
+        "ramp_down": -0.25
+    },
+    "nuclear": {
+        "LCOE": 167,
+        "ramp_up": 0,
+        "ramp_down": 0
+    },
+    "solar": {
+        "LCOE": 36,
+        "ramp_up": 0,
+        "ramp_down": 0
+    },
+    "units":{
+        "LCOE" : "USD per MWh"
+    }
+}

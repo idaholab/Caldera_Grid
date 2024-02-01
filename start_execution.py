@@ -113,6 +113,7 @@ from get_customized_inputs import get_customized_pev_ramping
 from control_strategy_A import control_strategy_A
 from control_strategy_B import control_strategy_B
 from control_strategy_C import control_strategy_C
+from control_strategy_TE import control_strategy_TE
 
 #================================================
 
@@ -228,6 +229,7 @@ if __name__ == '__main__':
     #num_of_federates += 1   # control_strategy_A
     #num_of_federates += 1   # control_strategy_B
     #num_of_federates += 1   # control_strategy_C
+    num_of_federates += 1   # control_strategy_transactive_energy
     
     broker = subprocess.Popen(['helics_broker', '--loglevel=no_print', '-f{}'.format(num_of_federates)])
     #broker = subprocess.Popen(['helics_broker', '-f{}'.format(num_of_federates)])
@@ -284,6 +286,13 @@ if __name__ == '__main__':
     p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
     #processes.append(p)
     
+    #-------------------------------
+    #   Control Strategy_transactive_energy Federate
+    #-------------------------------
+    json_config_file_name = 'control_strategy_TE.json'
+    CS_TE_obj = control_strategy_TE(io_dir, simulation_time_constraints)
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_TE_obj,), name="control_strategy_TE_federate")
+    processes.append(p)
 
     for p in processes:
         p.start()

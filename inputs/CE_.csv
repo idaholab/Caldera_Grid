@@ -1,7 +1,3 @@
 charge_event_id,SE_id,pev_id,pev_type,start_time,end_time_chg,end_time_prk,dest_type,soc_i,soc_f,ES_strategy,VS_strategy,Ext_strategy
-1,1,1,bev250_ld2_300kW,8,_,10,_,0,1,NA,NA,ext0001q
-2,2,2,bev250_ld2_300kW,8,_,10,_,0,1,NA,NA,ext0001q
-3,3,3,bev250_ld2_300kW,12,_,14,_,0,1,NA,NA,ext0002q
-4,4,4,bev250_ld2_300kW,12,_,14,_,0,1,NA,NA,ext0002q
-5,4,4,bev250_ld2_300kW,20,_,22,_,0,0.2,NA,NA,NA
-6,4,4,bev250_ld2_300kW,20,_,23,_,0,0.2,NA,NA,NA
+1,1,1,bev250_400kW,6,_,17,_,0.2,0.8,NA,NA,ext0001
+2,2,2,bev250_400kW,12,_,24,_,0.2,0.8,NA,NA,ext0001

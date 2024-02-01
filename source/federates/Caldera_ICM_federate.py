@@ -135,6 +135,8 @@ def caldera_ICM_federate( io_dir,
     federate_name = h.helicsFederateGetName(fed)
     print('{} Federate Started.'.format(federate_name))
     while True:
+        
+        #simulation_time = federate_time - (federate_time%grid_timestep_sec)     # rounding down to the nearest grid timestep
         #=====================================
         #         	Sub Step 1 
         #=====================================
@@ -161,7 +163,7 @@ def caldera_ICM_federate( io_dir,
         #-------------------------------------
         # Calculate pev P and Q
         #-------------------------------------
-        node_pevPQ = ICM_obj.get_charging_power(federate_time, node_puV)
+        node_pevPQ = ICM_obj.get_charging_power(federate_time, node_puV)  # using simulation_time instead of federate time because federate time is off by a sub-step
         
         #-------------------------------------
         # Send pev P and Q to OpenDSS

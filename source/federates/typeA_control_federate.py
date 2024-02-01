@@ -114,6 +114,7 @@ def typeA_control_federate(io_dir, json_config_file_name, simulation_time_constr
     
     is_first_iteration = True
     while True:
+        print("X.next_control_timestep_start_unix_time : ", X.next_control_timestep_start_unix_time/3600)
         #-------------------------------------
         #           Log Data
         #------------------------------------- 
