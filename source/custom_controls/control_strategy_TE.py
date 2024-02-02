@@ -172,14 +172,14 @@ class charge_controller:
         self.controller_starttime_sec = starttime_sec
         self.controller_endtime_sec = endtime_sec
         self.controller_timestep_sec = timestep_sec
-        self.charge_profile_timestep_sec = 60           # 1minute timestep
+        self.charge_profile_timestep_sec = 60           # 1 minute timestep
         
         # CP_interface_v2 generates charge profiles
         self.charge_profiles = CP_interface_v2(input_folder)
         
         # cost_forcaster contains the cost of energy
         #self.cost_forecaster = TE_cost_forecaster(input_folder + "/TE_cost.csv")
-        self.cost_forecaster = TE_cost_forecaster_v2(input_folder + "/TE_inputs/forecasted_demand.csv", input_folder + "/TE_inputs/actual_demand.csv", input_folder + "/TE_inputs/generation_cost.json")
+        self.cost_forecaster = TE_cost_forecaster_v2(input_folder + "/TE_inputs/forecast.csv", input_folder + "/TE_inputs/actual.csv", input_folder + "/TE_inputs/generation_cost.json")
         
         # controller_2Darr keeps track of what SE's should be controlled at any given time
         num_SEs = len(SE_ids)
