@@ -1,5 +1,5 @@
 
-from math import floor, ceil
+from math import floor, ceil, fmod
 
 from Caldera_globals import L2_control_strategies_enum, SE_setpoint, timeseries, active_CE
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
@@ -18,6 +18,7 @@ class control_strategy_TE(typeA_control):
     def __init__(self, io_dir, simulation_time_constraints):
         super().__init__(io_dir, simulation_time_constraints)
         
+        self.io_dir = io_dir
         self.control_timestep_min = 15    
         self.request_state_lead_time_min = (2*simulation_time_constraints.grid_timestep_sec + 0.5)/60
         self.send_control_info_lead_time_min = (simulation_time_constraints.grid_timestep_sec + 0.5)/60
@@ -38,15 +39,13 @@ class control_strategy_TE(typeA_control):
         return False
     
     def initialize(self):
-        
         # All supply_equipments in the simulation
         SE_ids = list(self.datasets_dict[input_datasets.SEid_to_SE_type].keys())
         
-        self.controller = charge_controller("./inputs", self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
+        self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
         
         # keeps track of charge events that are handed over to charge controller
         self.processed_charge_events = []
-
         #-------------------------------------
         #    Calculate Timing Parameters
         #-------------------------------------        
@@ -63,8 +62,8 @@ class control_strategy_TE(typeA_control):
     
     def get_messages_to_request_state_info_from_Caldera(self, current_simulation_unix_time):
         return_dict = {}
-        return_dict[Caldera_message_types.get_all_active_charge_events] = None
-        
+        #return_dict[Caldera_message_types.get_all_active_charge_events] = None
+        return_dict[Caldera_message_types.get_active_charge_events_by_extCS] = ['ext0001']
         return return_dict
     
     def get_messages_to_request_state_info_from_OpenDSS(self, current_simulation_unix_time):
@@ -97,7 +96,8 @@ class control_strategy_TE(typeA_control):
         cost_deviated_from_forecast = ((actual_cost - forecasted_cost) / forecasted_cost > tolerance)        
         print("Control Strategy cost_deviated_from_forecast : ", cost_deviated_from_forecast)
         
-        CEs_all = Caldera_state_info_dict[Caldera_message_types.get_all_active_charge_events]
+        CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS]['ext0001']
+        #CEs_all = Caldera_state_info_dict[Caldera_message_types.get_all_active_charge_events]
         
         for CE in CEs_all:
             
@@ -166,11 +166,11 @@ class charge_controller:
             SE_ids - all supply equipment ids present in the simulation
         '''
         
-        self.plot = True
+        self.plot = False
         self.plots = set()
         
         self.controller_starttime_sec = starttime_sec
-        self.controller_endtime_sec = endtime_sec
+        self.controller_endtime_sec = endtime_sec * 24 * 3600   # Add extra day in case CE's forecast window spills over to next day.
         self.controller_timestep_sec = timestep_sec
         self.charge_profile_timestep_sec = 60           # 1 minute timestep
         
@@ -268,7 +268,7 @@ class charge_controller:
         #       Build cost profile timeseries
         #-------------------------------------------
         
-        cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, departure_unix_time, self.controller_timestep_sec)
+        cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, departure_unix_time - fmod(departure_unix_time, self.controller_timestep_sec), self.controller_timestep_sec)
         #for i in range(len(cost_profile.data)):
         #    print("time : {}, cost : {}".format(cost_profile.get_time_from_index_sec(i)/3600.0, cost_profile.data[i]))
         
@@ -406,7 +406,7 @@ class TE_cost_forecaster_v2():
         with open(cost_input_file, "r") as f_cost:
             cost_json = json.load(f_cost)
 
-        generation_types = df_forecast.columns[1:].to_series()
+        generation_types = df_forecast.columns[2:].to_series()
         
         df_forecast["cost"] = df_forecast["time_hrs"] * 0.0
         for gen_type in generation_types:    
@@ -464,8 +464,6 @@ class TE_cost_forecaster_v2():
         
         #print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
         #print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("self.data_timestep_sec % timestep_sec should be equal to 0: ", self.forecasted_cost_profile.data_timestep_sec % timestep_sec)
-        #print("self.forecasted_cost_profile.data_timestep_sec > timestep_sec should be false: ", self.forecasted_cost_profile.data_timestep_sec > timestep_sec)
         #print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
         #print("timestep_sec < 0  should be false: ", timestep_sec < 0)
         if (starttime_sec % data_timestep_sec != 0.0) or \
