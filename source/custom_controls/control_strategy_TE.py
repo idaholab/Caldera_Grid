@@ -9,7 +9,7 @@ from Caldera_ICM_Aux import CP_interface_v2
 import os 
 import pandas as pd
 import numpy as np
-from typing import List        
+from typing import List
 import matplotlib.pyplot as plt
 import json
 
@@ -42,7 +42,7 @@ class control_strategy_TE(typeA_control):
         # All supply_equipments in the simulation
         SE_ids = list(self.datasets_dict[input_datasets.SEid_to_SE_type].keys())
         
-        self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
+        self.controller = charge_controller(self.io_dir.inputs_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
         
         # keeps track of charge events that are handed over to charge controller
         self.processed_charge_events = []
@@ -97,7 +97,6 @@ class control_strategy_TE(typeA_control):
         print("Control Strategy cost_deviated_from_forecast : ", cost_deviated_from_forecast)
         
         CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS]['ext0001']
-        #CEs_all = Caldera_state_info_dict[Caldera_message_types.get_all_active_charge_events]
         
         for CE in CEs_all:
             
@@ -111,7 +110,7 @@ class control_strategy_TE(typeA_control):
             
             if (cost_deviated_from_forecast):
                 print("updating existing charge event")
-                self.controller.recalculate_active_charge_event(CE)
+                self.controller.recalculate_active_charge_event(next_control_starttime_sec, CE)
             else:
                 
                 # process this charge event only if it is not already processed
@@ -120,7 +119,7 @@ class control_strategy_TE(typeA_control):
                     print("adding new charge event")
                     self.processed_charge_events.append(charge_event_id)                
                     # Add charge event to charge controller
-                    self.controller.add_active_charge_event(CE)
+                    self.controller.add_active_charge_event(next_control_starttime_sec, CE)
 
         #-----------------------------
         
@@ -166,14 +165,19 @@ class charge_controller:
             SE_ids - all supply equipment ids present in the simulation
         '''
         
-        self.plot = False
+        self.plot = True
         self.plots = set()
         
+        self.forecast_duration_sec = 12*3600
         self.controller_starttime_sec = starttime_sec
-        self.controller_endtime_sec = endtime_sec * 24 * 3600   # Add extra day in case CE's forecast window spills over to next day.
+        self.controller_endtime_sec = endtime_sec + self.forecast_duration_sec
         self.controller_timestep_sec = timestep_sec
         self.charge_profile_timestep_sec = 60           # 1 minute timestep
-        
+                
+
+        if input_folder[-1] == "/":
+            input_folder = input_folder[:-1]
+            
         # CP_interface_v2 generates charge profiles
         self.charge_profiles = CP_interface_v2(input_folder)
         
@@ -183,8 +187,11 @@ class charge_controller:
         
         # controller_2Darr keeps track of what SE's should be controlled at any given time
         num_SEs = len(SE_ids)
-        num_steps = ceil((self.controller_endtime_sec - self.controller_starttime_sec)/ self.controller_timestep_sec) + 1 # adding 1 extra buffer controller could try to control endtime + timestep
-        self.controller_2Darr = np.zeros((num_SEs, num_steps))
+        num_steps = ceil((self.controller_endtime_sec - self.controller_starttime_sec)/ self.controller_timestep_sec) + 1
+        self.controller_2Darr = np.full((num_SEs, num_steps), False)
+        print("controller_2Darr shape", self.controller_2Darr.shape)
+        print("controller_2Darr size", self.controller_2Darr.size)
+        print("controller_2Darr nbytes", self.controller_2Darr.nbytes)
         
         # mappings of SE_id into controller_2Darr
         self.SE_id_to_controller_index_map = {}
@@ -208,13 +215,9 @@ class charge_controller:
         return int((time_sec - self.controller_starttime_sec)/self.controller_timestep_sec)
         
         
-    def recalculate_active_charge_event(self, active_charge_event : active_CE):
+    def recalculate_active_charge_event(self, next_control_starttime_sec : float, active_charge_event : active_CE):
         
         SE_id = active_charge_event.SE_id
-        now_unix_time = active_charge_event.now_unix_time
-        departure_unix_time = active_charge_event.departure_unix_time
-        
-        next_control_starttime_sec = floor(now_unix_time / self.controller_timestep_sec + 1) * self.controller_timestep_sec
         
         # clear old optimized charge event profile
         idx = self.SE_id_to_controller_index_map[SE_id]
@@ -222,9 +225,8 @@ class charge_controller:
         self.controller_2Darr[idx, start_time_idx:] = 0
         
         self.add_active_charge_event(active_charge_event)
-
     
-    def add_active_charge_event(self, active_charge_event : active_CE):
+    def add_active_charge_event(self, next_control_starttime_sec : float, active_charge_event : active_CE):
         '''
         Description:
             Adds charge events to the controller by updating controller_2Darr with cheapest 
@@ -239,15 +241,19 @@ class charge_controller:
         
         # get the required info from active_charge_event
         SE_id = active_charge_event.SE_id
+        CE_id = active_charge_event.charge_event_id
         supply_equipment_type = active_charge_event.supply_equipment_type
         vehicle_type = active_charge_event.vehicle_type
         departure_unix_time = active_charge_event.departure_unix_time
         arrival_SOC = active_charge_event.arrival_SOC
         departure_SOC = active_charge_event.departure_SOC
-        now_unix_time = active_charge_event.now_unix_time
         now_soc = active_charge_event.now_soc
         
-        next_control_starttime_sec = floor(now_unix_time / self.controller_timestep_sec + 1) * self.controller_timestep_sec
+        #-------------------------------------------
+        #       Build time parameters
+        #-------------------------------------------
+        start_time_sec = next_control_starttime_sec
+        end_time_sec = min(next_control_starttime_sec + self.forecast_duration_sec, departure_unix_time - fmod(departure_unix_time, self.controller_timestep_sec))
         
         #-------------------------------------------
         #       Build Charge profile timeseries
@@ -262,13 +268,13 @@ class charge_controller:
         charge_profile_data = (np.add.reduceat(all_charge_profile_data.P3_kW, np.arange(0, len(all_charge_profile_data.P3_kW), num_bins_to_aggregate))/num_bins_to_aggregate)*(self.controller_timestep_sec/3600.0)
         
         # convert charge_profile_data to timeseries
-        charge_profile = timeseries(next_control_starttime_sec, self.controller_timestep_sec, charge_profile_data)
+        charge_profile = timeseries(start_time_sec, self.controller_timestep_sec, charge_profile_data)
         
         #-------------------------------------------
         #       Build cost profile timeseries
         #-------------------------------------------
         
-        cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, departure_unix_time - fmod(departure_unix_time, self.controller_timestep_sec), self.controller_timestep_sec)
+        cost_profile = self.cost_forecaster.get_cost_for_time_range(start_time_sec, end_time_sec, self.controller_timestep_sec)
         #for i in range(len(cost_profile.data)):
         #    print("time : {}, cost : {}".format(cost_profile.get_time_from_index_sec(i)/3600.0, cost_profile.data[i]))
         
@@ -288,67 +294,75 @@ class charge_controller:
         #       Update controller_2Darr 
         #-------------------------------------------
         
-        for index in cost_profile_indeces_cheapest:
-            profile_time_sec = cost_profile.get_time_from_index_sec(index)
-            control_time_index = floor(( profile_time_sec - self.controller_starttime_sec ) / self.controller_timestep_sec)             
-            self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = 1
+        for cost_profile_index in cost_profile_indeces_cheapest:
+            profile_time_sec = cost_profile.get_time_from_index_sec(cost_profile_index)
+            control_time_index = self.get_time_idx_from_time_sec(profile_time_sec)          
+            self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = True
         
         if self.plot == True:
             
-
-            fig, axes = plt.subplots(2, 1, figsize=(50, 15))
             
-            x_tick_values = np.arange(self.controller_starttime_sec, self.controller_endtime_sec + self.controller_timestep_sec, self.controller_timestep_sec)
-            x_tick_values = x_tick_values/3600.0
+            start_idx = self.get_time_idx_from_time_sec(start_time_sec)  
+            end_idx = self.get_time_idx_from_time_sec(end_time_sec)            
+            profile_size = end_idx - start_idx
             
-            ax = axes[0]            
+            time_profile = np.arange(start_time_sec, end_time_sec, self.controller_timestep_sec)/3600.0
+            charge_profile = charge_profile.data[:profile_size] + [0]*(profile_size - len(charge_profile.data))
+            cost_profile = cost_profile.data
+            control_profile = self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], start_idx:end_idx]
+               
+            fig, axes = plt.subplots(3, 1, figsize=(25, 15))
+            
+            ax = axes[0]
+            ax.plot(time_profile, charge_profile)
+            ax.set_xlabel("Time (hrs)")
+            ax.set_ylabel("Power (kW)")
+            ax.set_title("Charge profile")
+            ax.set_xlim(time_profile[0], time_profile[-1] + self.controller_timestep_sec/3600.0)
+            
+            ax.set_xticks(time_profile)
+            ax.grid(True, which='both', axis='both')
 
-            ax.plot(np.linspace(cost_profile.data_starttime_sec/3600.0, cost_profile.data_endtime_sec/3600.0, len(cost_profile.data) + 1)[:-1], cost_profile.data)
+
+            ax = axes[1]
+            ax.plot(time_profile, cost_profile)
             ax.set_xlabel("Time (hrs)")
             ax.set_ylabel("Cost ($$$)")
             ax.set_title("Forecasted cost profile")
-            ax.set_xticks(x_tick_values)
-            #ax.set_yticks(np.linspace(0.1, 0.3, 5))
-            ax.set_xlim(x_tick_values[0], x_tick_values[-1] + self.controller_timestep_sec/3600.0)
+            ax.set_xlim(time_profile[0], time_profile[-1] + self.controller_timestep_sec/3600.0)
+            
+            ax.set_xticks(time_profile)
             ax.grid(True, which='both', axis='both')
             
-            ax = axes[1]
-
-            num_steps = ceil((self.controller_endtime_sec - self.controller_starttime_sec)/ self.controller_timestep_sec) + 1 # adding 1 extra buffer controller could try to control endtime + timestep
-                
-            cmap = plt.cm.get_cmap('Greens')  # adjust as needed
+            ax = axes[2]
+            cmap = plt.get_cmap('viridis')
+           
+            ax.bar(time_profile, align='edge', height=1, width = 1, color=cmap(np.array(control_profile, dtype = float)))
+            ax.set_xlabel("Time (hrs)")
+            ax.set_title("Forecasted control profile")
             
-            im = ax.imshow(self.controller_2Darr, cmap=cmap, vmin=0, vmax=2, interpolation='none', aspect='auto', extent=(x_tick_values[0], x_tick_values[-1] + self.controller_timestep_sec/3600.0, 1, 2))
+            ax.tick_params(left = False)
+            ax.set_xlim(time_profile[0], time_profile[-1] + self.controller_timestep_sec/3600.0)
+            ax.set_ylim(0, 1)
             
-            # Set colorbar labels (optional)
-            #colorbar = plt.colorbar(im)  # Create colorbar
-            #colorbar.ax.set_ylabel('Value')  # Set colorbar label
-            #colorbar.set_ticks([0, 1, 2])  # Set colorbar ticks for desired values
-            #colorbar.set_ticklabels(['No Charging (White)', 'Scheduled Charging (Yellow)', 'Did Charging (Green)'])  # Set colorbar labels
+            ax.set_xticks(time_profile)
+            ax.set_yticks([])
             
-            ax.set_xlabel('Time')
-            ax.set_ylabel('SEs')
-            ax.set_title('controller_2Darr solving for time {}'.format(next_control_starttime_sec/3600.0))
-            ax.set_xticks(x_tick_values)
-            ax.set_yticks([1, 1.5, 2])
-            ax.grid(True, which='both', axis='both')
-            
+            ax.grid()
             plt.subplots_adjust(hspace=0.4)
-            
-            base_name = 'SE_{}_plot_{:.2f}_'.format(SE_id, next_control_starttime_sec/3600.0)
+            base_name = 'CE_{}_plot_{:.2f}_'.format(CE_id, next_control_starttime_sec/3600.0)
             suffix = 0
             while "{}{}".format(base_name, str(suffix)) in self.plots:
                 suffix += 1
             
             plot_name = "{}{}".format(base_name, str(suffix))
             self.plots.add(plot_name)
-            
             plt.savefig(plot_name+".png")
-            
+   
             #self.plot = False
             
         print("controller_2Darr aftter optimizing charge : ", self.controller_2Darr)
-                
+           
     def get_SE_setpoints(self, next_control_timestep_sec : float) -> List[SE_setpoint]:
         '''
         Description:
