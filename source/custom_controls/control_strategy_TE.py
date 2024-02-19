@@ -13,6 +13,8 @@ from typing import List
 import matplotlib.pyplot as plt
 import json
 
+from scipy.linalg import solve
+
 class control_strategy_TE(typeA_control):
     
     def __init__(self, io_dir, simulation_time_constraints):
@@ -81,7 +83,7 @@ class control_strategy_TE(typeA_control):
         next_control_starttime_sec = current_simulation_unix_time
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
 
-        self.controller.update_charging(next_control_starttime_sec)
+        # self.controller.update_charging(next_control_starttime_sec)
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
         #----------------------------------------------------------
@@ -98,12 +100,18 @@ class control_strategy_TE(typeA_control):
         
         CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS]['ext0001']
         
+        print("CEs_all : ", len(CEs_all))
+
+
+        active_SEs = []
         for CE in CEs_all:
             
             # get the charge_event id
             charge_event_id = CE.charge_event_id
             SE_id = CE.SE_id
             now_soc = CE.now_soc
+            
+            active_SEs.append(SE_id)
             
             str = 'time:{}  SE_id:{}  soc:{}  '.format(round(next_control_starttime_sec/3600.0, 4), SE_id, now_soc)
             print(str)
@@ -127,11 +135,11 @@ class control_strategy_TE(typeA_control):
         DSS_control_info_dict = {}
         
         # get control setpoints from controller
-        PQ_setpoints = self.controller.get_SE_setpoints(next_control_starttime_sec)
+        PQ_setpoints = self.controller.get_SE_setpoints(next_control_starttime_sec, active_SEs)
         
-        #for X in PQ_setpoints:
-        #    print("X.SE_id :", X.SE_id)
-        #    print("X.PkW :", X.PkW)
+        for X in PQ_setpoints:
+            print("X.SE_id :", X.SE_id)
+            print("X.PkW :", X.PkW)
 
         print("")
         print("===========================================")
@@ -363,7 +371,7 @@ class charge_controller:
             
         print("controller_2Darr aftter optimizing charge : ", self.controller_2Darr)
            
-    def get_SE_setpoints(self, next_control_timestep_sec : float) -> List[SE_setpoint]:
+    def get_SE_setpoints(self, next_control_timestep_sec : float, active_SEs : List[int] ) -> List[SE_setpoint]:
         '''
         Description:
             Looks up controller_2Darr to see which supply_equipment needs to charge at the specific time
@@ -375,18 +383,20 @@ class charge_controller:
             PQ_setpoints - list of setpoint objects
         '''
         
+        active_SE_indexes = [self.SE_id_to_controller_index_map[SE_id] for SE_id in active_SEs]
+        
         time_index = floor((next_control_timestep_sec - self.controller_starttime_sec)/ self.controller_timestep_sec)
         
         # check all rows in the current column if they are 1
-        SE_indexes = np.array(np.where(self.controller_2Darr[:, time_index] == 1))
-        print("SE_indexes", SE_indexes)
-        print("type(SE_indexes)", type(SE_indexes))
+        SE_indexes_to_charge = np.array(np.where(self.controller_2Darr[active_SE_indexes, time_index] == 1))
+        print("SE_indexes_to_charge", SE_indexes_to_charge)
+        print("type(SE_indexes_to_charge)", type(SE_indexes_to_charge))
         
         PQ_setpoints = []
-        for SE_id in self.SE_id_to_controller_index_map:
+        for SE_id in active_SE_indexes:
             X = SE_setpoint()
             X.SE_id = SE_id     
-            if np.any(SE_indexes == self.SE_id_to_controller_index_map[SE_id]):
+            if np.any(SE_indexes_to_charge == self.SE_id_to_controller_index_map[SE_id]):
                 X.PkW = 1000
             else:
                 X.PkW = 0          
@@ -395,10 +405,10 @@ class charge_controller:
         
         return PQ_setpoints
     
-    def update_charging(self, next_control_starttime_sec : float) -> None:
+    # def update_charging(self, next_control_starttime_sec : float) -> None:
         
-        end_idx = self.get_time_idx_from_time_sec(next_control_starttime_sec)
-        self.controller_2Darr[:, :end_idx][self.controller_2Darr[:, :end_idx] == 1] = 2
+    #     end_idx = self.get_time_idx_from_time_sec(next_control_starttime_sec)
+    #     self.controller_2Darr[:, :end_idx][self.controller_2Darr[:, :end_idx] == 1] = 2
         
 
 class TE_cost_forecaster_v2():
@@ -420,39 +430,134 @@ class TE_cost_forecaster_v2():
         with open(cost_input_file, "r") as f_cost:
             cost_json = json.load(f_cost)
 
-        generation_types = df_forecast.columns[2:].to_series()
+        solver_method = "inverse_s"
+        self.forecasted_cost_profile = self.solver(solver_method, df_forecast, cost_json)
+        self.actual_cost_profile = self.solver(solver_method, df_actual, cost_json)
         
-        df_forecast["cost"] = df_forecast["time_hrs"] * 0.0
-        for gen_type in generation_types:    
-            df_forecast["cost"] += df_forecast[gen_type] * cost_json[gen_type]["LCOE"]
-
-        df_forecast["cost"] = df_forecast["cost"] * 5/60      # 5 min data convert to MWh
-        df_forecast["cost"] = df_forecast["cost"] / 1000      # convert to kWh
-
-        df_actual["cost"] = df_actual["time_hrs"] * 0.0
-        for gen_type in generation_types:    
-            df_actual["cost"] += df_actual[gen_type] * cost_json[gen_type]["LCOE"]
-
-        df_actual["cost"] = df_actual["cost"] * 5/60      # 5 min data convert to MWh
-        df_actual["cost"] = df_actual["cost"] / 1000      # convert to kWh
-
-        data_starttime_sec = 0.0
-        data_timestep_sec = 5*60
-        ## Do some error checks here. Example data should be there for atleast 1 day and be multiple of day
-        self.forecasted_cost_profile = timeseries(data_starttime_sec, data_timestep_sec, df_forecast["cost"].tolist())
-        self.actual_cost_profile = timeseries(data_starttime_sec, data_timestep_sec, df_actual["cost"].tolist())
-        
+        ## Error Checks
         if not len(self.forecasted_cost_profile.data) == len(self.actual_cost_profile.data):
            raise ValueError('ERROR : Input forecasted_cost_profile data and actual_cost_profile should have same length')
         
-        if not ((data_timestep_sec * len(self.forecasted_cost_profile.data)) % 24*3600 == 0.0):
+        if not ((self.forecasted_cost_profile.data_timestep_sec * len(self.forecasted_cost_profile.data)) % 24*3600 == 0.0):
            raise ValueError('ERROR : Input forecasted_cost_profile data should be multiple of 24 hours of data')
         
-        if not ((data_timestep_sec * len(self.actual_cost_profile.data)) % 24*3600 == 0.0):
+        if not ((self.forecasted_cost_profile.data_timestep_sec * len(self.actual_cost_profile.data)) % 24*3600 == 0.0):
            raise ValueError('ERROR : Input actual_cost_profile data should be multiple of 24 hours of data')
         
-        self.cost_profile_length_sec = data_timestep_sec * len(self.forecasted_cost_profile.data)
+        self.cost_profile_length_sec = self.forecasted_cost_profile.data_timestep_sec * len(self.forecasted_cost_profile.data)
 
+    def solver(self, solver_method, df, cost_data) -> timeseries:
+        
+        start_time_sec = round(df["time_hrs"][0] * 3600.0)
+        timestep_sec = round((df["time_hrs"][1] - df["time_hrs"][0])*3600)
+        
+        gen_types = df.columns[2:].to_series()
+        print("gen_types:", gen_types)
+        
+        cost_usd_per_kWh = np.zeros(df.shape[0], dtype=float)
+        total_cost_usd = np.zeros(df.shape[0], dtype=float)
+        
+        individual_costs = []
+        for gen_type in gen_types:
+            
+            gen_min = cost_data[gen_type]["gen_min"]            #MW
+            gen_max = cost_data[gen_type]["gen_max"]            #MW
+            cost_min = cost_data[gen_type]["cost_min"]          # USD per MWh
+            cost_max = cost_data[gen_type]["cost_max"]          # USD per MWh
+
+            print('gen_type:',gen_type)
+            print('gen_min:',gen_min)
+            print('gen_max:',gen_max)
+            print('cost_min:',cost_min)
+            print('cost_max:',cost_max)
+            
+            if abs(cost_min - cost_max) < 0.001:      # cost_min == cost_max        # nuclear and solar come under this scenario
+                
+                individual_cost_function = np.full_like(total_cost_usd, cost_min, dtype=float)
+                total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
+                
+            else:                                                                   # Thermal scenario
+            
+                if solver_method == "linear":
+                    
+                    individual_cost_function = (df[gen_type] - gen_min)/(gen_max-gen_min)*(cost_max-cost_min)+ cost_min
+                    individual_costs.append(individual_cost_function)
+                    
+                    total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
+                
+                elif solver_method == "steep_cubic":
+                    
+                    dxdy_at_gen_min = 0
+                    dxdy_at_gen_max = 0.35
+
+                    
+                    A = [[gen_min**0, gen_min**1,   gen_min**2,     gen_min**3], 
+                         [0,          1*gen_min**0, 2*gen_min**1,   3*gen_min**2], 
+                         [gen_max**0, gen_max**1,   gen_max**2,     gen_max**3],
+                         [0,          1*gen_max**0, 2*gen_max**1,   3*gen_max**2]]
+
+                    b = [[cost_min],
+                         [dxdy_at_gen_min],
+                         [cost_max],
+                         [dxdy_at_gen_max]]
+                    
+                    C = solve(A, b)
+                    
+                    individual_cost_function = C[0][0] * df[gen_type]**0 + C[1][0] * df[gen_type]**1 + C[2][0] * df[gen_type]**2 + C[3][0] * df[gen_type]**3
+                    individual_costs.append(individual_cost_function)
+                    
+                    total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
+                    
+                elif solver_method == "inverse_s":
+                    
+                    dxdy_at_gen_min = 0.3
+                    dxdy_at_gen_max = 0.3
+
+
+                    A = [[gen_min**0, gen_min**1,   gen_min**2,     gen_min**3], 
+                         [0,          1*gen_min**0, 2*gen_min**1,   3*gen_min**2], 
+                         [gen_max**0, gen_max**1,   gen_max**2,     gen_max**3],
+                         [0,          1*gen_max**0, 2*gen_max**1,   3*gen_max**2]]
+
+                    b = [[cost_min],
+                         [dxdy_at_gen_min],
+                         [cost_max],
+                         [dxdy_at_gen_max]]
+ 
+                    C = solve(A, b)
+
+                    individual_cost_function = C[0][0] * df[gen_type]**0 + C[1][0] * df[gen_type]**1 + C[2][0] * df[gen_type]**2 + C[3][0] * df[gen_type]**3
+                    individual_costs.append(individual_cost_function)
+                    
+                    total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
+                    
+                else:
+                    
+                    raise ValueError('ERROR : solver_method should be linear or steep_cubic or inverse_s')
+            
+            fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+            
+            ax.plot(df[gen_type], individual_cost_function)
+            ax.set_xlabel("Power (MW)")
+            ax.set_ylabel("Cost ($$$ per MWh)")
+        
+            fig.savefig("fig_" + gen_type + ".png", dpi = 300)
+        
+        
+        total_MWh_per_timestep = df[gen_types].sum(axis=1) * timestep_sec/3600.0
+        cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
+        cost_usd_per_kWh = cost_usd_per_MWh/1000.0
+        
+        fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+        ax.plot(df["time_hrs"], cost_usd_per_kWh)
+        fig.savefig("fig_" + solver_method + "_time.png", dpi = 300)
+        
+        fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+        ax.scatter(df[gen_types].sum(axis=1), cost_usd_per_kWh)
+        fig.savefig("fig_" + solver_method + "_power.png", dpi = 300)
+                
+        return timeseries(start_time_sec, timestep_sec, cost_usd_per_kWh)
+            
     def get_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, timestep_sec : float) -> timeseries:
         '''
         Description:
