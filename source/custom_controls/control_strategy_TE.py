@@ -114,17 +114,17 @@ class control_strategy_TE(typeA_control):
             active_SEs.append(SE_id)
             
             str = 'time:{}  SE_id:{}  soc:{}  '.format(round(next_control_starttime_sec/3600.0, 4), SE_id, now_soc)
-            print(str)
+            #print(str)
             
             if (cost_deviated_from_forecast):
-                print("updating existing charge event")
+                print("updating existing charge event: ", charge_event_id)
                 self.controller.recalculate_active_charge_event(next_control_starttime_sec, CE)
             else:
                 
                 # process this charge event only if it is not already processed
                 if charge_event_id not in self.processed_charge_events:
                     
-                    print("adding new charge event")
+                    print("adding new charge event: ", charge_event_id)
                     self.processed_charge_events.append(charge_event_id)                
                     # Add charge event to charge controller
                     self.controller.add_active_charge_event(next_control_starttime_sec, CE)
@@ -173,7 +173,7 @@ class charge_controller:
             SE_ids - all supply equipment ids present in the simulation
         '''
         
-        self.plot = True
+        self.plot = False
         self.plots = set()
         
         self.forecast_duration_sec = 12*3600
@@ -234,7 +234,7 @@ class charge_controller:
         
         self.add_active_charge_event(active_charge_event)
     
-    def add_active_charge_event(self, next_control_starttime_sec : float, active_charge_event : active_CE):
+    def add_active_charge_event(self, next_control_starttime_sec : float, active_charge_event : active_CE) -> None:
         '''
         Description:
             Adds charge events to the controller by updating controller_2Darr with cheapest 
@@ -263,6 +263,9 @@ class charge_controller:
         start_time_sec = next_control_starttime_sec
         end_time_sec = min(next_control_starttime_sec + self.forecast_duration_sec, departure_unix_time - fmod(departure_unix_time, self.controller_timestep_sec))
         
+        if(end_time_sec <= start_time_sec):
+            print("Charge event {} too small. Cannot be controlled".format(CE_id))
+            return
         #-------------------------------------------
         #       Build Charge profile timeseries
         #-------------------------------------------
@@ -369,7 +372,7 @@ class charge_controller:
    
             #self.plot = False
             
-        print("controller_2Darr aftter optimizing charge : ", self.controller_2Darr)
+        #print("controller_2Darr aftter optimizing charge : ", self.controller_2Darr)
            
     def get_SE_setpoints(self, next_control_timestep_sec : float, active_SEs : List[int] ) -> List[SE_setpoint]:
         '''
@@ -581,14 +584,16 @@ class TE_cost_forecaster_v2():
             raise ValueError('ERROR : timestep parameters to get_forecasted_cost_for_time_range are incompatible')
 
         
-        #print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
-        #print("timestep_sec < 0  should be false: ", timestep_sec < 0)
         if (starttime_sec % data_timestep_sec != 0.0) or \
            (endtime_sec % data_timestep_sec != 0.0) or \
            (starttime_sec >= endtime_sec ) or \
            (req_timestep_sec < 0):
+
+           print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
+           print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
+           print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
+           print("timestep_sec < 0  should be false: ", timestep_sec < 0)
+            
            raise ValueError('ERROR : parameters to get_forecasted_cost_for_time_range are incompatible')
 
         data = []
