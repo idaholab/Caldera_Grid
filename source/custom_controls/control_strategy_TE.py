@@ -20,6 +20,7 @@ class control_strategy_TE(typeA_control):
     def __init__(self, io_dir, simulation_time_constraints):
         super().__init__(io_dir, simulation_time_constraints)
         
+        self.cs_id = 'ext0001'
         self.io_dir = io_dir
         self.control_timestep_min = 15    
         self.request_state_lead_time_min = (2*simulation_time_constraints.grid_timestep_sec + 0.5)/60
@@ -31,13 +32,18 @@ class control_strategy_TE(typeA_control):
         
     
     def get_input_dataset_enum_list(self):
-        return [input_datasets.SE_group_configuration, input_datasets.SE_group_charge_event_data, input_datasets.SEid_to_SE_type, input_datasets.charge_event_builder]
+        return [input_datasets.SE_group_configuration, input_datasets.SE_group_charge_event_data, input_datasets.SEid_to_SE_type, input_datasets.charge_event_builder, input_datasets.external_strategies]
 
     def load_input_datasets(self, datasets_dict):
         # datasets_dict is a dictionary with input_datasets as keys.
         self.datasets_dict = datasets_dict
     
     def terminate_this_federate(self):
+        
+        if self.cs_id not in self.datasets_dict[input_datasets.external_strategies]:
+            print("Control Strategy TE is not being used in charge events. Control Strategy TE federate Quitting")
+            return True
+        
         return False
     
     def initialize(self):
@@ -64,8 +70,7 @@ class control_strategy_TE(typeA_control):
     
     def get_messages_to_request_state_info_from_Caldera(self, current_simulation_unix_time):
         return_dict = {}
-        #return_dict[Caldera_message_types.get_all_active_charge_events] = None
-        return_dict[Caldera_message_types.get_active_charge_events_by_extCS] = ['ext0001']
+        return_dict[Caldera_message_types.get_active_charge_events_by_extCS] = [self.cs_id]
         return return_dict
     
     def get_messages_to_request_state_info_from_OpenDSS(self, current_simulation_unix_time):
@@ -77,13 +82,9 @@ class control_strategy_TE(typeA_control):
         # current_simulation_unix_time refers to when the next control action would start. i.e. begining of next control timestep 
         # and end of current control timestep
 
-        #next_control_timestep_sec = floor(current_simulation_unix_time / self.control_timestep_sec + 1) * self.control_timestep_sec
-        #print("Control Strategy current_simulation_unix_time : ", current_simulation_unix_time/3600.0)
-        
         next_control_starttime_sec = current_simulation_unix_time
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
 
-        # self.controller.update_charging(next_control_starttime_sec)
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
         #----------------------------------------------------------
@@ -98,10 +99,7 @@ class control_strategy_TE(typeA_control):
         cost_deviated_from_forecast = ((actual_cost - forecasted_cost) / forecasted_cost > tolerance)        
         print("Control Strategy cost_deviated_from_forecast : ", cost_deviated_from_forecast)
         
-        CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS]['ext0001']
-        
-        print("CEs_all : ", len(CEs_all))
-
+        CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS][self.cs_id]
 
         active_SEs = []
         for CE in CEs_all:
@@ -137,9 +135,9 @@ class control_strategy_TE(typeA_control):
         # get control setpoints from controller
         PQ_setpoints = self.controller.get_SE_setpoints(next_control_starttime_sec, active_SEs)
         
-        for X in PQ_setpoints:
-            print("X.SE_id :", X.SE_id)
-            print("X.PkW :", X.PkW)
+        # for X in PQ_setpoints:
+        #     print("X.SE_id :", X.SE_id)
+        #     print("X.PkW :", X.PkW)
 
         print("")
         print("===========================================")
@@ -190,16 +188,15 @@ class charge_controller:
         self.charge_profiles = CP_interface_v2(input_folder)
         
         # cost_forcaster contains the cost of energy
-        #self.cost_forecaster = TE_cost_forecaster(input_folder + "/TE_cost.csv")
         self.cost_forecaster = TE_cost_forecaster_v2(input_folder + "/TE_inputs/forecast.csv", input_folder + "/TE_inputs/actual.csv", input_folder + "/TE_inputs/generation_cost.json")
         
         # controller_2Darr keeps track of what SE's should be controlled at any given time
         num_SEs = len(SE_ids)
         num_steps = ceil((self.controller_endtime_sec - self.controller_starttime_sec)/ self.controller_timestep_sec) + 1
         self.controller_2Darr = np.full((num_SEs, num_steps), False)
-        print("controller_2Darr shape", self.controller_2Darr.shape)
-        print("controller_2Darr size", self.controller_2Darr.size)
-        print("controller_2Darr nbytes", self.controller_2Darr.nbytes)
+        # print("controller_2Darr shape", self.controller_2Darr.shape)
+        # print("controller_2Darr size", self.controller_2Darr.size)
+        # print("controller_2Darr nbytes", self.controller_2Darr.nbytes)
         
         # mappings of SE_id into controller_2Darr
         self.SE_id_to_controller_index_map = {}
@@ -213,7 +210,6 @@ class charge_controller:
 
     def get_forecasted_cost_at_time_sec(self, time_sec : float) -> float:
         return self.cost_forecaster.get_forecasted_cost_at_time_sec(time_sec)
-        
     
     def get_actual_cost_at_time_sec(self, time_sec : float) -> float:
         return self.cost_forecaster.get_actual_cost_at_time_sec(time_sec)
@@ -286,8 +282,6 @@ class charge_controller:
         #-------------------------------------------
         
         cost_profile = self.cost_forecaster.get_cost_for_time_range(start_time_sec, end_time_sec, self.controller_timestep_sec)
-        #for i in range(len(cost_profile.data)):
-        #    print("time : {}, cost : {}".format(cost_profile.get_time_from_index_sec(i)/3600.0, cost_profile.data[i]))
         
         #-------------------------------------------
         #       Select least cost times 
@@ -299,8 +293,6 @@ class charge_controller:
         # TODO : make the cost profile as contiguous as possible
         cost_profile_indeces_cheapest = cost_profile_indices_sorted[:len(charge_profile.data)]
         
-        #for i in cost_profile_indeces_cheapest:
-        #    print("time : {}, cost : {}".format(cost_profile.get_time_from_index_sec(i)/3600.0, cost_profile.data[i]))
         #-------------------------------------------
         #       Update controller_2Darr 
         #-------------------------------------------
@@ -311,7 +303,6 @@ class charge_controller:
             self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = True
         
         if self.plot == True:
-            
             
             start_idx = self.get_time_idx_from_time_sec(start_time_sec)  
             end_idx = self.get_time_idx_from_time_sec(end_time_sec)            
@@ -371,9 +362,7 @@ class charge_controller:
             plt.savefig(plot_name+".png")
    
             #self.plot = False
-            
-        #print("controller_2Darr aftter optimizing charge : ", self.controller_2Darr)
-           
+               
     def get_SE_setpoints(self, next_control_timestep_sec : float, active_SEs : List[int] ) -> List[SE_setpoint]:
         '''
         Description:
@@ -390,15 +379,13 @@ class charge_controller:
         
         time_index = floor((next_control_timestep_sec - self.controller_starttime_sec)/ self.controller_timestep_sec)
         
-        # check all rows in the current column if they are 1
-        SE_indexes_to_charge = np.array(np.where(self.controller_2Darr[active_SE_indexes, time_index] == 1))
-        print("SE_indexes_to_charge", SE_indexes_to_charge)
-        print("type(SE_indexes_to_charge)", type(SE_indexes_to_charge))
+        # check all rows with active charge events that need to charge
+        SE_indexes_to_charge = np.array(np.where(self.controller_2Darr[active_SE_indexes, time_index] == True))
         
         PQ_setpoints = []
         for SE_id in active_SE_indexes:
             X = SE_setpoint()
-            X.SE_id = SE_id     
+            X.SE_id = SE_id
             if np.any(SE_indexes_to_charge == self.SE_id_to_controller_index_map[SE_id]):
                 X.PkW = 1000
             else:
@@ -406,13 +393,7 @@ class charge_controller:
 
             PQ_setpoints.append(X)
         
-        return PQ_setpoints
-    
-    # def update_charging(self, next_control_starttime_sec : float) -> None:
-        
-    #     end_idx = self.get_time_idx_from_time_sec(next_control_starttime_sec)
-    #     self.controller_2Darr[:, :end_idx][self.controller_2Darr[:, :end_idx] == 1] = 2
-        
+        return PQ_setpoints    
 
 class TE_cost_forecaster_v2():
     '''
@@ -455,7 +436,6 @@ class TE_cost_forecaster_v2():
         timestep_sec = round((df["time_hrs"][1] - df["time_hrs"][0])*3600)
         
         gen_types = df.columns[2:].to_series()
-        print("gen_types:", gen_types)
         
         cost_usd_per_kWh = np.zeros(df.shape[0], dtype=float)
         total_cost_usd = np.zeros(df.shape[0], dtype=float)
@@ -467,12 +447,6 @@ class TE_cost_forecaster_v2():
             gen_max = cost_data[gen_type]["gen_max"]            #MW
             cost_min = cost_data[gen_type]["cost_min"]          # USD per MWh
             cost_max = cost_data[gen_type]["cost_max"]          # USD per MWh
-
-            print('gen_type:',gen_type)
-            print('gen_min:',gen_min)
-            print('gen_max:',gen_max)
-            print('cost_min:',cost_min)
-            print('cost_max:',cost_max)
             
             if abs(cost_min - cost_max) < 0.001:      # cost_min == cost_max        # nuclear and solar come under this scenario
                 
@@ -538,26 +512,26 @@ class TE_cost_forecaster_v2():
                     
                     raise ValueError('ERROR : solver_method should be linear or steep_cubic or inverse_s')
             
-            fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+            # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
             
-            ax.plot(df[gen_type], individual_cost_function)
-            ax.set_xlabel("Power (MW)")
-            ax.set_ylabel("Cost ($$$ per MWh)")
+            # ax.plot(df[gen_type], individual_cost_function)
+            # ax.set_xlabel("Power (MW)")
+            # ax.set_ylabel("Cost ($$$ per MWh)")
         
-            fig.savefig("fig_" + gen_type + ".png", dpi = 300)
+            # fig.savefig("fig_" + gen_type + ".png", dpi = 300)
         
         
         total_MWh_per_timestep = df[gen_types].sum(axis=1) * timestep_sec/3600.0
         cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
         cost_usd_per_kWh = cost_usd_per_MWh/1000.0
         
-        fig, ax = plt.subplots(1, 1, figsize=(25, 15))
-        ax.plot(df["time_hrs"], cost_usd_per_kWh)
-        fig.savefig("fig_" + solver_method + "_time.png", dpi = 300)
+        # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+        # ax.plot(df["time_hrs"], cost_usd_per_kWh)
+        # fig.savefig("fig_" + solver_method + "_time.png", dpi = 300)
         
-        fig, ax = plt.subplots(1, 1, figsize=(25, 15))
-        ax.scatter(df[gen_types].sum(axis=1), cost_usd_per_kWh)
-        fig.savefig("fig_" + solver_method + "_power.png", dpi = 300)
+        # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+        # ax.scatter(df[gen_types].sum(axis=1), cost_usd_per_kWh)
+        # fig.savefig("fig_" + solver_method + "_power.png", dpi = 300)
                 
         return timeseries(start_time_sec, timestep_sec, cost_usd_per_kWh)
             
@@ -752,217 +726,5 @@ class TE_cost_forecaster_v2():
 
         # TODO: Donot hardcode 24 hrs instead get it from timeseries
         time_sec %= self.cost_profile_length_sec
-    
-        return self.actual_cost_profile.get_val_from_time(time_sec)
-    
-
-
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-##################################################
-
-class TE_cost_forecaster():
-    '''
-    The TE_cost_forecaster will read the TE cost from input file and load it as timeseries data 
-    '''
-    
-    def __init__(self, input_file : str) -> None:
-        '''
-        Description:
-            Constructor
-        
-        Parameters:
-            input_file - The file where cost data is stored
-        '''
-        
-        f = open(input_file)
-        all_lines = f.readlines()
-                
-        data_starttime_sec = float(all_lines[0].split(",")[1])
-        data_timestep_sec = float(all_lines[1].split(",")[1])
-        forecasted_data = [float(all_lines[i].split(",")[0]) for i in range(3, len(all_lines))]
-        actual_data = [float(all_lines[i].split(",")[1]) for i in range(3, len(all_lines))]
-
-        ## Do some error checks here. Example data should be there for atleast 1 day and be multiple of day
-        self.forecasted_cost_profile = timeseries(data_starttime_sec, data_timestep_sec, forecasted_data)
-        self.actual_cost_profile = timeseries(data_starttime_sec, data_timestep_sec, actual_data)
-        
-
-    def get_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, timestep_sec : float) -> timeseries:
-        '''
-        Description:
-            Given a timerange and timestep, looksup the data and returns the cost. 
-            the timerange should match up with data timeperiod.
-            requested timestep_sec should be smaller that data_timestep_sec.
-            data_timestep_sec should be a multiple of requested timestep_sec.
-            
-        Parameters:
-            starttime_sec - The file where cost data is stored
-            
-        Output:
-            timeseries - 
-        '''
-        
-        #print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("self.data_timestep_sec % timestep_sec should be equal to 0: ", self.forecasted_cost_profile.data_timestep_sec % timestep_sec)
-        #print("self.forecasted_cost_profile.data_timestep_sec > timestep_sec should be false: ", self.forecasted_cost_profile.data_timestep_sec > timestep_sec)
-        #print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
-        #print("timestep_sec < 0  should be false: ", timestep_sec < 0)
-        if (starttime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (endtime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec % timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec > timestep_sec) or \
-           (starttime_sec >= endtime_sec ) or \
-           (timestep_sec < 0):
-           raise ValueError('ERROR : parameters to get_forecasted_cost_for_time_range are incompatible')
-
-
-        data = []
-        for time_sec in range(int(starttime_sec), int(endtime_sec), int(timestep_sec)):
-            time_sec %= 24*3600
-            
-            # The assumption here is that for current time. in this case the starttime_sec, real time actual cost is available.
-            # beyond the current time, forecasted cost is used.
-            if time_sec == int(starttime_sec):
-                cost = self.actual_cost_profile.get_val_from_time(time_sec)
-            else:
-                cost = self.forecasted_cost_profile.get_val_from_time(time_sec)
-                
-            data.append(cost)
-        
-        return timeseries(starttime_sec, timestep_sec, data)                
-    
-    def get_forecasted_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, timestep_sec : float) -> timeseries:
-        '''
-        Description:
-            Given a timerange and timestep, looksup the data and returns the cost. 
-            the timerange should match up with data timeperiod.
-            requested timestep_sec should be smaller that data_timestep_sec.
-            data_timestep_sec should be a multiple of requested timestep_sec.
-            
-        Parameters:
-            starttime_sec - The file where cost data is stored
-            
-        Output:
-            timeseries - 
-        '''
-        
-        #print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("self.data_timestep_sec % timestep_sec should be equal to 0: ", self.forecasted_cost_profile.data_timestep_sec % timestep_sec)
-        #print("self.forecasted_cost_profile.data_timestep_sec > timestep_sec should be false: ", self.forecasted_cost_profile.data_timestep_sec > timestep_sec)
-        #print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
-        #print("timestep_sec < 0  should be false: ", timestep_sec < 0)
-        if (starttime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (endtime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec % timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec > timestep_sec) or \
-           (starttime_sec >= endtime_sec ) or \
-           (timestep_sec < 0):
-           raise ValueError('ERROR : parameters to get_forecasted_cost_for_time_range are incompatible')
-
-
-        data = []
-        for time_sec in range(int(starttime_sec), int(endtime_sec), int(timestep_sec)):
-            time_sec %= 24*3600
-            
-            # The assumption here is that for current time. in this case the starttime_sec, real time actual cost is available.
-            # beyond the current time, forecasted cost is used.
-            cost = self.forecasted_cost_profile.get_val_from_time(time_sec)
-            data.append(cost)
-        
-        return timeseries(starttime_sec, timestep_sec, data)                
-
-
-    def get_actual_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, timestep_sec : float) -> timeseries:
-        '''
-        Description:
-            Given a timerange and timestep, looksup the data and returns the cost. 
-            the timerange should match up with data timeperiod.
-            requested timestep_sec should be smaller that data_timestep_sec.
-            data_timestep_sec should be a multiple of requested timestep_sec.
-            
-        Parameters:
-            starttime_sec - The file where cost data is stored
-            
-        Output:
-            timeseries - 
-        '''
-        
-        #print("starttime_sec % self.data_timestep_sec should be equal to 0 :", starttime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("endtime_sec % self.data_timestep_sec should be equal to 0: ", endtime_sec % self.forecasted_cost_profile.data_timestep_sec)
-        #print("self.data_timestep_sec % timestep_sec should be equal to 0: ", self.forecasted_cost_profile.data_timestep_sec % timestep_sec)
-        #print("self.forecasted_cost_profile.data_timestep_sec > timestep_sec should be false: ", self.forecasted_cost_profile.data_timestep_sec > timestep_sec)
-        #print("starttime_sec >= endtime_sec should be false: ", starttime_sec >= endtime_sec)
-        #print("timestep_sec < 0  should be false: ", timestep_sec < 0)
-        if (starttime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (endtime_sec % self.forecasted_cost_profile.data_timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec % timestep_sec != 0.0) or \
-           (self.forecasted_cost_profile.data_timestep_sec > timestep_sec) or \
-           (starttime_sec >= endtime_sec ) or \
-           (timestep_sec < 0):
-           raise ValueError('ERROR : parameters to get_forecasted_cost_for_time_range are incompatible')
-
-
-        data = []
-        for time_sec in range(int(starttime_sec), int(endtime_sec), int(timestep_sec)):
-            time_sec %= 24*3600
-            
-            # The assumption here is that for current time. in this case the starttime_sec, real time actual cost is available.
-            # beyond the current time, forecasted cost is used.
-            cost = self.actual_cost_profile.get_val_from_time(time_sec)
-            data.append(cost)
-        
-        return timeseries(starttime_sec, timestep_sec, data)                
-
-
-    def get_forecasted_cost_at_time_sec(self, time_sec : float) -> float:
-        '''
-        Description:
-            Given a time in seconds, looksup the data and returns the actual cost of energy at that time. 
-            
-        Parameters:
-            time_sec - The time in seconds for which cost of energy needs to be returned. 
-            
-        Output:
-            cost - cost of energy in dollars at that time.
-        '''
-        
-        #print("time_sec < 0  should be false: ", time_sec < 0)
-        if (time_sec < 0):
-            raise ValueError('ERROR : parameters to get_actual_cost_at_time_sec are incompatible')
-
-        # TODO: Donot hardcode 24 hrs instead get it from timeseries
-        time_sec %= 24*3600
-    
-        return self.forecasted_cost_profile.get_val_from_time(time_sec)
-
-    def get_actual_cost_at_time_sec(self, time_sec : float) -> float:
-        '''
-        Description:
-            Given a time in seconds, looksup the data and returns the actual cost of energy at that time. 
-            
-        Parameters:
-            time_sec - The time in seconds for which cost of energy needs to be returned. 
-            
-        Output:
-            cost - cost of energy in dollars at that time.
-        '''
-        
-        #print("time_sec < 0  should be false: ", time_sec < 0)
-        if (time_sec < 0):
-            raise ValueError('ERROR : parameters to get_actual_cost_at_time_sec are incompatible')
-
-        # TODO: Donot hardcode 24 hrs instead get it from timeseries
-        time_sec %= 24*3600
     
         return self.actual_cost_profile.get_val_from_time(time_sec)
