@@ -414,7 +414,7 @@ class TE_cost_forecaster_v2():
             cost_json = json.load(f_cost)
 
         # Three solver methods available linear, steep_cubic and inverse_s
-        solver_method = "inverse_s"
+        solver_method = cost_json["cost_function"]
         self.forecasted_cost_profile = self.solver(solver_method, df_forecast, cost_json)
         self.actual_cost_profile = self.solver(solver_method, df_actual, cost_json)
         
@@ -436,11 +436,12 @@ class TE_cost_forecaster_v2():
         Description:
             Applies cost functions to the generation data
         '''
+        df.columns = [column.split("|")[0].strip() for column in df.columns.to_series()]
         
-        start_time_sec = round(df["time_hrs"][0] * 3600.0)
-        timestep_sec = round((df["time_hrs"][1] - df["time_hrs"][0])*3600)
+        start_time_sec = round(df["time"][0] * 3600.0)
+        timestep_sec = round((df["time"][1] - df["time"][0])*3600)
         
-        # Ignore first 2 columns time_hrs and demand
+        # Ignore first 2 columns time and forecasted_demand/actual_demand
         gen_types = df.columns[2:].to_series()
         
         cost_usd_per_kWh = np.zeros(df.shape[0], dtype=float)
