@@ -1,0 +1,38 @@
+{
+	"name":"control_strategy_TE",
+	"coreName":"control_strategy_TE_core",
+	"coretype":"zmq",
+	"coreInit":"--federates=1",
+	"period": 0.01,
+	"uninterruptible":true,
+
+	"endpoints":
+	[
+		{
+			"name":"input_datasets_endpoint",
+			"global":false,
+			"destination":"Load_Input_Files/input_datasets_endpoint"
+		},
+    {
+			"name":"typeA_control_ICM_endpoint",
+			"global":false,
+      "destination":"Caldera_ICM/typeA_control_ICM_endpoint"
+		},
+        {
+			"name":"typeA_control_openDSS_endpoint",
+			"global":false,
+      "destination":"OpenDSS/typeA_control_openDSS_endpoint"
+		}
+	],   
+    "subscriptions": 
+    [
+        {
+          "key": "Load_Input_Files/data_loaded", 
+          "required": true
+        },
+        {
+          "key": "OpenDSS/dss_simulation_loaded", 
+          "required": true
+        }
+    ]
+}

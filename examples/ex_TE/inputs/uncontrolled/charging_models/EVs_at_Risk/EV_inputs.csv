@@ -1,0 +1,9 @@
+EV_type,battery_chemistry,usable_battery_size_kWh,range_miles,efficiency_Wh/Mile,AC_charge_rate_kW,DCFC_capable,max_c_rate,pack_voltage_at_peak_power_V
+ld_50kWh,NMC,50,200,250,15.8976,TRUE,2.9,1000
+ld_100kWh,NMC,100,300,333,15.8976,TRUE,2.9,1000
+md_200kWh,NMC,200,250,800,15.8976,TRUE,2.9,1000
+hd_300kWh,NMC,300,150,2000,15.8976,TRUE,2.9,1500
+hd_400kWh,NMC,400,200,2000,15.8976,TRUE,2.9,1500
+hd_600kWh,NMC,600,300,2000,15.8976,TRUE,2.9,1500
+hd_800kWh,NMC,800,400,2000,15.8976,TRUE,2.9,1500
+hd_1000kWh,NMC,1000,500,2000,15.8976,TRUE,2.5,1500
