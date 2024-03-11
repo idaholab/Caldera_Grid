@@ -46,6 +46,9 @@ days = {
         "cloudy day" : "2022-10-17",
         }
 
+# TE_profiles directory
+TE_profiles_dir = os.path.join(path_to_here, "TE_profiles")
+
 # Charge Event file
 CE_file = "CE_ICM_work_dominant_original.csv"
 ratio = 0.001 # ratio of charge events to filter. 1 means all charge events are included and 0 means no charge events are included
@@ -95,7 +98,7 @@ time_hrs = np.arange(0, num_days*24*3600, required_timestep)/3600.0
 
 #===============================
 
-non_ev_demand_df = pd.read_csv(os.path.join("TE_profiles", non_ev_demand_file))
+non_ev_demand_df = pd.read_csv(os.path.join(TE_profiles_dir, non_ev_demand_file))
 
 #Plot all days demand and gen data
 if plots == True:
@@ -114,7 +117,7 @@ if plots == True:
 
 #===============================
 
-ev_demand_df = pd.read_csv(os.path.join("TE_profiles", ev_demand_file))
+ev_demand_df = pd.read_csv(os.path.join(TE_profiles_dir, ev_demand_file))
 
 # Filter charging demand for only 1 day i.e. middle day
 ev_demand_df = ev_demand_df[(ev_demand_df["simulation_time_hrs"] >= 24.0) & (ev_demand_df["simulation_time_hrs"] < 48.0)]
@@ -133,7 +136,7 @@ if plots == True:
 
 #===============================
 
-solar_df = pd.read_csv(os.path.join("TE_profiles", solar_file))
+solar_df = pd.read_csv(os.path.join(TE_profiles_dir, solar_file))
 solar_df["Time stamp"] = pd.to_datetime(solar_df['Time stamp'], format = "%b %d, %I:%M %p")
 solar_df["Time stamp"] = solar_df["Time stamp"] + pd.DateOffset(years=122)
 
@@ -162,7 +165,7 @@ for scenario, date in days.items():
 
 #===============================
 
-CE_df = pd.read_csv(os.path.join("TE_profiles", CE_file), keep_default_na=False)
+CE_df = pd.read_csv(os.path.join(TE_profiles_dir, CE_file), keep_default_na=False)
 
 CE_df['start_time'] = CE_df['start_time'] - 7*24
 CE_df['end_time_prk'] = CE_df['end_time_prk'] - 7*24
@@ -188,7 +191,7 @@ df_destin2 = df_destin.iloc[random_destin_indices, :]
 
 final_CE_df = pd.concat([df_home2, df_work2, df_destin2])
 
-SE_df = pd.read_csv(os.path.join("TE_profiles", SE_file), keep_default_na=False)
+SE_df = pd.read_csv(os.path.join(TE_profiles_dir, SE_file), keep_default_na=False)
 
 final_SE_df = SE_df[SE_df["SE_id"].isin(final_CE_df["SE_id"])]
 
