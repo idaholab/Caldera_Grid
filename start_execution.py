@@ -37,6 +37,13 @@ parser.add_argument(
     argument is not present, the default outputs folder will be used.",
     required=False)
 parser.add_argument(
+    '-hel',
+    '--helics_config_path',
+    help="Path to the helics configuration directory. \
+    If the argument is not present, the default helics config \
+    directory path will be used.",
+    required=False)
+parser.add_argument(
     '-ts',
     '--time_step_sec',
     help="The timestep in seconds. Defaults to 60 seconds.",
@@ -138,6 +145,14 @@ if __name__ == '__main__':
         output_path = os.path.join( path_to_here, "outputs" )
         print("Defaulting the outputs/ folder to be in the same directory as start_execution.py")
     
+    if args["helics_config_path"] != None:
+        helics_config_path = "{}".format(args["helics_config_path"])
+    else:
+        # The default location of the 'helics_config' folder
+        # is to be in 'inputs/helics_config' of the inputs directory in the same directory as the libraries
+        helics_config_path = os.path.join( caldera_grid_proj_dir, os.path.join("inputs","helics_config") )
+        print("Defaulting the helics_config/ folder to be in the inputs directory in the same directory as the libraries.")
+    
     print("Input path : {}".format(input_path))
     print("Output path : {}".format(output_path))
 
@@ -211,6 +226,7 @@ if __name__ == '__main__':
     io_dir.base_dir = caldera_grid_proj_dir
     io_dir.inputs_dir = os.path.join( working_dir, input_path )
     io_dir.outputs_dir = os.path.join( working_dir, output_path )
+    io_dir.helics_config_dir = helics_config_path
     
     if not os.path.exists(io_dir.inputs_dir):
         print("Input directory does not exist", io_dir.inputs_dir)
