@@ -34,6 +34,7 @@ for folder in folders:
         "-libs", path_to_libs,
         "-in", input_directory,
         "-out", output_directory,
+        "-hel", os.path.join( input_directory, "helics_config" ),
         "-ts", str(timestep),
         "-start", str(starttime),
         "-end", str(endtime),
