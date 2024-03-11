@@ -1,0 +1,7 @@
+# Base input files from which other inputs are created
+CE_ICM_work_dominant_original.csv
+el_paso_demand.csv
+el_paso_solar_2022_results.csv
+EV_charging.csv
+SE_ICM_work_dominant_original.csv
+Solar profiles in el paso.sam

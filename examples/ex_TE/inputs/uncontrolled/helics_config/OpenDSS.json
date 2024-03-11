@@ -1,0 +1,45 @@
+{
+	"name":"OpenDSS",
+	"coreName":"OpenDSS_core",
+	"coretype":"zmq",
+	"coreInit":"--federates=1",
+	"period": 0.01,
+	"uninterruptible":true,
+	
+	"endpoints":
+	[
+        {
+			"name":"input_datasets_endpoint",
+			"global":false,
+			"destination":"Load_Input_Files/input_datasets_endpoint"
+		},
+		{
+			"name":"ICM_openDSS_endpoint",
+			"global":false,
+			"destination":"Caldera_ICM/ICM_openDSS_endpoint"
+		},
+        {
+			"name":"typeA_control_openDSS_endpoint",
+			"global":false
+		},
+        {
+			"name":"typeB_control_openDSS_endpoint",
+			"global":false
+		}
+	],
+    "subscriptions": 
+    [
+        {
+          "key": "Load_Input_Files/data_loaded", 
+          "required": true
+        }
+    ],    
+    "publications": 
+    [
+        {
+          "key": "dss_simulation_loaded", 
+          "type": "bool",
+          "global": false
+        }
+    ]
+}
