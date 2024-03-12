@@ -240,7 +240,7 @@ class charge_controller:
         self.controller_2Darr[idx, start_time_idx:] = 0
         
         # Compute for this charge event again
-        self.add_active_charge_event(active_charge_event)
+        self.add_active_charge_event(next_control_starttime_sec, active_charge_event)
     
     def add_active_charge_event(self, next_control_starttime_sec : float, active_charge_event : active_CE) -> None:
         '''
