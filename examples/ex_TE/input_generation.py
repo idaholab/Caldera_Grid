@@ -242,7 +242,9 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         input_subfolder = os.path.join(input_path, subfolder, cost_function, "scenario_{}".format(i))
         output_subfolder = os.path.join(output_path, subfolder, cost_function, "scenario_{}".format(i))
 
+        if os.path.exists(input_subfolder) and os.path.isdir(input_subfolder):
         shutil.rmtree(input_subfolder, ignore_errors=False)
+        
         shutil.copytree(uncontrolled_folder, input_subfolder)
         
         clean_input_folder(input_subfolder)
