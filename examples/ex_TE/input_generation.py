@@ -15,7 +15,9 @@ import shutil
 from numpy.random import default_rng
 import json
 
-plots = False
+plot_ev_demand_plots = False
+plot_solar_plots = False
+
 required_timestep = 5*60
 num_days = 3
 
@@ -100,10 +102,18 @@ time_hrs = np.arange(0, num_days*24*3600, required_timestep)/3600.0
 
 non_ev_demand_df = pd.read_csv(os.path.join(TE_profiles_dir, non_ev_demand_file))
 
+non_ev_demand_df_demand_MW = non_ev_demand_df['demand_MW'].to_numpy()
+non_ev_demand_df_time_hrs = non_ev_demand_df['time_hrs'].to_numpy()
+
 #Plot all days demand and gen data
-if plots == True:
+if plot_ev_demand_plots == True:
     fig, ax = plt.subplots()
-    ax.plot(non_ev_demand_df['time_hrs'], non_ev_demand_df['demand_MW'])
+    ax.plot(non_ev_demand_df_time_hrs, non_ev_demand_df_demand_MW)
+    ax.set_title("demand_MW")
+    ax.set_xlabel("hours")
+    ax.set_ylabel("MW")
+    ax.set_xticks(np.arange(0,non_ev_demand_df_time_hrs.max()+1.0,24.0))
+    ax.set_ylim((0,(int(non_ev_demand_df_demand_MW.max()/100.0)+1)*100.0))
 
 non_ev_demand_start_idx = int(non_ev_demand_day*24*3600/non_ev_demand_timestep_sec)
 non_ev_demand_end_idx = int((non_ev_demand_day+1)*24*3600/non_ev_demand_timestep_sec)
@@ -111,9 +121,14 @@ non_ev_demand_end_idx = int((non_ev_demand_day+1)*24*3600/non_ev_demand_timestep
 non_ev_demand_MW = np.tile(non_ev_demand_df["demand_MW"][non_ev_demand_start_idx:non_ev_demand_end_idx], num_days)
 
 #Plot demand
-if plots == True:
+if plot_ev_demand_plots == True:
     fig, ax = plt.subplots()
     ax.plot(time_hrs, non_ev_demand_MW)
+    ax.set_title("non_ev_demand_MW")
+    ax.set_xlabel("hours")
+    ax.set_ylabel("MW")
+    ax.set_xticks(np.arange(0,time_hrs.max()+1.0,24.0))
+    ax.set_ylim((0,(int(non_ev_demand_df_demand_MW.max()/100.0)+1)*100.0))
 
 #===============================
 
@@ -130,9 +145,14 @@ ev_demand_kW = (ev_demand_df['total_demand_kW'].groupby(ev_demand_df.index // di
 ev_demand_MW = np.tile(ev_demand_kW, num_days)/1000.0
 
 #Plot demand
-if plots == True:
+if plot_ev_demand_plots == True:
     fig, ax = plt.subplots()
     ax.plot(time_hrs, ev_demand_MW)
+    ax.set_title("ev_demand_MW")
+    ax.set_xlabel("hours")
+    ax.set_ylabel("MW")
+    ax.set_xticks(np.arange(0,time_hrs.max()+1.0,24.0))
+    ax.set_ylim((0,(int(non_ev_demand_df_demand_MW.max()/100.0)+1)*100.0))
 
 #===============================
 
@@ -153,7 +173,7 @@ for scenario, date in days.items():
     
     solar_profiles[scenario] = solar_MW
     
-    if plots == True:
+    if plot_solar_plots == True:
         fig, ax = plt.subplots(1, 1)
         ax.plot(time_hrs, solar_MW)
         ax.set_xlabel("Time (hrs)")
@@ -243,7 +263,7 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         output_subfolder = os.path.join(output_path, subfolder, cost_function, "scenario_{}".format(i))
 
         if os.path.exists(input_subfolder) and os.path.isdir(input_subfolder):
-        shutil.rmtree(input_subfolder, ignore_errors=False)
+            shutil.rmtree(input_subfolder, ignore_errors=False)
         
         shutil.copytree(uncontrolled_folder, input_subfolder)
         
