@@ -170,15 +170,11 @@ CE_df = pd.read_csv(os.path.join(TE_profiles_dir, CE_file), keep_default_na=Fals
 CE_df['start_time'] = CE_df['start_time'] - 7*24
 CE_df['end_time_prk'] = CE_df['end_time_prk'] - 7*24
 
-CE_df['start_time'] = 4 + 24
-CE_df['end_time_prk'] = 22 + 24
-
-
 df_home = CE_df[(CE_df["charge_event_id"] >= 100000000) & (CE_df["charge_event_id"] < 200000000)]
 df_work = CE_df[(CE_df["charge_event_id"] >= 200000000) & (CE_df["charge_event_id"] < 300000000)]
 df_destin = CE_df[(CE_df["charge_event_id"] >= 300000000) & (CE_df["charge_event_id"] < 400000000)]
 
-rng = default_rng()
+rng = default_rng(seed = 0)
 
 # rng.choice generates n random numbers between 0 and input val, replace = False make the numbers unique
 random_home_indices = np.sort(rng.choice(len(df_home), size=int(ratio*len(df_home)), replace=False))
@@ -246,13 +242,11 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         input_subfolder = os.path.join(input_path, subfolder, cost_function, "scenario_{}".format(i))
         output_subfolder = os.path.join(output_path, subfolder, cost_function, "scenario_{}".format(i))
 
-        shutil.rmtree(input_subfolder, ignore_errors=True)
+        shutil.rmtree(input_subfolder, ignore_errors=False)
         shutil.copytree(uncontrolled_folder, input_subfolder)
         
-        shutil.rmtree(output_subfolder, ignore_errors=True)
-        os.makedirs(output_subfolder)
-        
         clean_input_folder(input_subfolder)
+        create_output_folder(output_subfolder)
         
         final_CE_df.to_csv(os.path.join(input_subfolder, "CE_controlled.csv"), index = False)
         final_SE_df.to_csv(os.path.join(input_subfolder, "SE_controlled.csv"), index = False)
@@ -280,13 +274,19 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         with open(os.path.join(input_subfolder, "TE_inputs", "generation_cost.json"), 'w') as fp:
             json.dump(generation_cost, fp, indent=4)
 
+def create_output_folder(output_folder):
+
+    if os.path.exists(output_folder) and os.path.isdir(output_folder):
+        shutil.rmtree(output_folder, ignore_errors=False)
+    
+    os.makedirs(os.path.join(output_folder))    # intermediate directory is also created
+
 # Uncontrolled
 uncontrolled_input_folder = os.path.join(input_path, "uncontrolled")
 uncontrolled_output_folder = os.path.join(output_path, "uncontrolled")
 
 clean_input_folder(uncontrolled_input_folder)
-shutil.rmtree(uncontrolled_output_folder, ignore_errors=True)
-os.makedirs(uncontrolled_output_folder)
+create_output_folder(uncontrolled_output_folder)
 
 final_CE_df.to_csv(os.path.join(uncontrolled_input_folder, "CE_uncontrolled.csv"), index = False)
 final_SE_df.to_csv(os.path.join(uncontrolled_input_folder, "SE_uncontrolled.csv"), index = False)

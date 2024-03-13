@@ -50,7 +50,7 @@ class control_strategy_TE(typeA_control):
         # All supply_equipments in the simulation
         SE_ids = list(self.datasets_dict[input_datasets.SEid_to_SE_type].keys())
         
-        self.controller = charge_controller(self.io_dir.inputs_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
+        self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
         
         cost_data = self.controller.cost_forecaster.get_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
         
@@ -122,14 +122,14 @@ class control_strategy_TE(typeA_control):
             #print(str)
             
             if (cost_deviated_from_forecast):
-                print("updating existing charge event: ", charge_event_id)
+                #print("updating existing charge event: ", charge_event_id)
                 self.controller.recalculate_active_charge_event(next_control_starttime_sec, CE)
             else:
                 
                 # process this charge event only if it is not already processed
                 if charge_event_id not in self.processed_charge_events:
                     
-                    print("adding new charge event: ", charge_event_id)
+                    #print("adding new charge event: ", charge_event_id)
                     self.processed_charge_events.append(charge_event_id)                
                     # Add charge event to charge controller
                     self.controller.add_active_charge_event(next_control_starttime_sec, CE)
@@ -162,7 +162,7 @@ class charge_controller:
         charge_controller is the controller that decides cheapest time for charge to occur based on cost of electricity.
     '''
     
-    def __init__(self, input_folder : str, starttime_sec : float, endtime_sec : float, timestep_sec : float, SE_ids : List[int]):
+    def __init__(self, io_dir, starttime_sec : float, endtime_sec : float, timestep_sec : float, SE_ids : List[int]):
         '''
         Description:
             constuctor initializes the charge controller, allocates the controller_2Darr that maintains the status of charge events being controlled.
@@ -170,6 +170,8 @@ class charge_controller:
         
         self.plot = False
         self.plots = set()
+        self.input_folder = io_dir.inputs_dir
+        self.figures_folder = os.path.join(io_dir.outputs_dir, "figures")
         
         self.forecast_duration_sec = 12*3600            # Max forecast of 12 hours
         self.controller_starttime_sec = starttime_sec   
@@ -178,11 +180,11 @@ class charge_controller:
         self.charge_profile_timestep_sec = 60           # 1 minute timestep
             
         # CP_interface_v2 generates charge profiles
-        self.charge_profiles = CP_interface_v2(input_folder)
+        self.charge_profiles = CP_interface_v2(self.input_folder)
         
-        forecast_file = os.path.join(input_folder, "TE_inputs/forecast.csv")
-        actual_file = os.path.join(input_folder, "TE_inputs/actual.csv")
-        cost_file = os.path.join(input_folder, "TE_inputs/generation_cost.json")
+        forecast_file = os.path.join(self.input_folder, "TE_inputs/forecast.csv")
+        actual_file = os.path.join(self.input_folder, "TE_inputs/actual.csv")
+        cost_file = os.path.join(self.input_folder, "TE_inputs/generation_cost.json")
         
         # cost_forcaster contains the cost of energy
         self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file)
@@ -199,6 +201,13 @@ class charge_controller:
         for (idx, SE_id) in enumerate(SE_ids):
             self.SE_id_to_controller_index_map[SE_id] = idx
             self.controller_index_to_SE_id_map[idx] = SE_id
+        
+    #def log_controller(self):
+    #    df = pd.DataFrame()
+    #    time_arr = np.array([i for i in range(self.controller_starttime_sec, self.controller_endtime_sec + self.controller_timestep_sec, self.controller_timestep_sec)])
+    #    df["time"] = time_arr/3600.0
+    #    df["SE_100239126"] = self.controller_2Darr[self.SE_id_to_controller_index_map[100239126], :].astype(int)
+    #    df.to_csv(os.path.join(self.input_folder, "controller_state.csv"), index = False)
         
     def get_forecasted_cost_at_time_sec(self, time_sec : float) -> float:
         '''
@@ -362,7 +371,9 @@ class charge_controller:
             
             plot_name = "{}{}".format(base_name, str(suffix))
             self.plots.add(plot_name)
-            plt.savefig(plot_name+".png")
+            
+            os.makedirs(self.figures_folder)
+            plt.savefig(os.path.join(self.figures_folder, plot_name+".png"))
    
             #self.plot = False
                
