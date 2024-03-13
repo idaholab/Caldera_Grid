@@ -372,12 +372,10 @@ class charge_controller:
             Looks up controller_2Darr to see which SEs needs to charge at the specific time
         '''
         
-        active_SE_indexes = [self.SE_id_to_controller_index_map[SE_id] for SE_id in active_SEs]
-        
         time_index = floor((next_control_timestep_sec - self.controller_starttime_sec)/ self.controller_timestep_sec)
         
         # check all rows with active charge events that need to charge
-        SE_indexes_to_charge = np.array(np.where(self.controller_2Darr[active_SE_indexes, time_index] == True))
+        SE_indexes_to_charge = np.array(np.where(self.controller_2Darr[:, time_index] == True))
         
         PQ_setpoints = []
         for SE_id in active_SEs:
