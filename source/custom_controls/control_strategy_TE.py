@@ -133,15 +133,15 @@ class control_strategy_TE(typeA_control):
                     self.processed_charge_events.append(charge_event_id)                
                     # Add charge event to charge controller
                     self.controller.add_active_charge_event(next_control_starttime_sec, CE)
-
+            
         #-----------------------------
-        
+            
         Caldera_control_info_dict = {}
         DSS_control_info_dict = {}
         
         # get control setpoints from controller
         PQ_setpoints = self.controller.get_SE_setpoints(next_control_starttime_sec, active_SEs)
-        
+ 
         print("                                           ")
         print("===========================================")
         print("                                           ")
@@ -182,9 +182,9 @@ class charge_controller:
         # CP_interface_v2 generates charge profiles
         self.charge_profiles = CP_interface_v2(self.input_folder)
         
-        forecast_file = os.path.join(self.input_folder, "TE_inputs/forecast.csv")
-        actual_file = os.path.join(self.input_folder, "TE_inputs/actual.csv")
-        cost_file = os.path.join(self.input_folder, "TE_inputs/generation_cost.json")
+        forecast_file = os.path.join(self.input_folder, "TE_inputs", "forecast.csv")
+        actual_file = os.path.join(self.input_folder, "TE_inputs", "actual.csv")
+        cost_file = os.path.join(self.input_folder, "TE_inputs", "generation_cost.json")
         
         # cost_forcaster contains the cost of energy
         self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file)
@@ -201,7 +201,7 @@ class charge_controller:
         for (idx, SE_id) in enumerate(SE_ids):
             self.SE_id_to_controller_index_map[SE_id] = idx
             self.controller_index_to_SE_id_map[idx] = SE_id
-        
+                
     #def log_controller(self):
     #    df = pd.DataFrame()
     #    time_arr = np.array([i for i in range(self.controller_starttime_sec, self.controller_endtime_sec + self.controller_timestep_sec, self.controller_timestep_sec)])
@@ -267,6 +267,8 @@ class charge_controller:
         arrival_SOC = active_charge_event.arrival_SOC
         departure_SOC = active_charge_event.departure_SOC
         now_soc = active_charge_event.now_soc
+        charge_time_remaining_hrs = active_charge_event.min_remaining_charge_time_hrs
+        charge_time_total_hrs = active_charge_event.min_time_to_complete_entire_charge_hrs
         
         #-------------------------------------------
         #       Build time parameters
@@ -278,21 +280,12 @@ class charge_controller:
             print("Charge event {} too small. Cannot be controlled".format(CE_id))
             return
         
-        #-------------------------------------------
-        #       Build Charge profile timeseries
-        #-------------------------------------------
+        # round up to the nearest self.controller_timestep_sec
+        charge_time_remaining_in_controller_step_sec = ceil(charge_time_remaining_hrs * 3600 / self.controller_timestep_sec) * self.controller_timestep_sec
         
-        # create charge_profile
-        all_charge_profile_data = self.charge_profiles.create_charge_profile_from_model(self.charge_profile_timestep_sec, vehicle_type, supply_equipment_type, now_soc, departure_SOC, 1000, {}, {})
-        
-        # create 15 min buckets, with energy consumed in each bucket.
-        num_bins_to_aggregate = int(self.controller_timestep_sec / self.charge_profile_timestep_sec)
-        
-        charge_profile_data = (np.add.reduceat(all_charge_profile_data.P3_kW, np.arange(0, len(all_charge_profile_data.P3_kW), num_bins_to_aggregate))/num_bins_to_aggregate)*(self.controller_timestep_sec/3600.0)
-        
-        # convert charge_profile_data to timeseries
-        charge_profile = timeseries(start_time_sec, self.controller_timestep_sec, charge_profile_data)
-        
+        # Number of steps controller needs to charge the vehicle
+        num_steps_to_charge_by_controller = int(charge_time_remaining_in_controller_step_sec / self.controller_timestep_sec)
+
         #-------------------------------------------
         #       Build cost profile timeseries
         #-------------------------------------------
@@ -307,7 +300,7 @@ class charge_controller:
         
         # select first n cheapest cost profiles 
         # TODO : make the cost profile as contiguous as possible
-        cost_profile_indeces_cheapest = cost_profile_indices_sorted[:len(charge_profile.data)]
+        cost_profile_indeces_cheapest = cost_profile_indices_sorted[:num_steps_to_charge_by_controller]
         
         #-------------------------------------------
         #       Update controller_2Darr 
@@ -320,12 +313,29 @@ class charge_controller:
         
         if self.plot == True:
             
+            #-------------------------------------------
+            #       Build Charge profile timeseries
+            #-------------------------------------------
+        
+            # create charge_profile
+            all_charge_profile_data = self.charge_profiles.create_charge_profile_from_model(self.charge_profile_timestep_sec, vehicle_type, supply_equipment_type, now_soc, departure_SOC, 1000, {}, {})
+        
+            # create 15 min buckets, with energy consumed in each bucket.
+            num_bins_to_aggregate = int(self.controller_timestep_sec / self.charge_profile_timestep_sec)
+        
+            charge_profile_data = (np.add.reduceat(all_charge_profile_data.P3_kW, np.arange(0, len(all_charge_profile_data.P3_kW), num_bins_to_aggregate))/num_bins_to_aggregate)*(self.controller_timestep_sec/3600.0)
+        
+            # convert charge_profile_data to timeseries
+            charge_profile = timeseries(start_time_sec, self.controller_timestep_sec, charge_profile_data)
+            
+            #-------------------------------------------
+            
             start_idx = self.get_time_idx_from_time_sec(start_time_sec)  
             end_idx = self.get_time_idx_from_time_sec(end_time_sec)            
             profile_size = end_idx - start_idx
             
             time_profile = np.arange(start_time_sec, end_time_sec, self.controller_timestep_sec)/3600.0
-            charge_profile = charge_profile.data[:profile_size] + [0]*(profile_size - len(charge_profile.data))
+            charge_profile = charge_profile.data[:profile_size] + [0.0]*(profile_size - len(charge_profile.data))     # make charge profile length same as other profiles by adding 0's to the end
             cost_profile = cost_profile.data
             control_profile = self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], start_idx:end_idx]
                
@@ -396,7 +406,7 @@ class charge_controller:
             if np.any(SE_indexes_to_charge == self.SE_id_to_controller_index_map[SE_id]):
                 X.PkW = 1000
             else:
-                X.PkW = 0          
+                X.PkW = 0
 
             PQ_setpoints.append(X)
         
