@@ -15,17 +15,26 @@ import shutil
 from numpy.random import default_rng
 import json
 
-plot_ev_demand_plots = False
-plot_solar_plots = False
+def reset_dir(dir_path : str):
 
-required_timestep = 5*60
+    if os.path.exists(dir_path) and os.path.isdir(dir_path):
+        shutil.rmtree(dir_path, ignore_errors=False)
+
+    os.makedirs(os.path.join(dir_path))    # intermediate directory is also created
+
+#-------------------------------
+
+plot_ev_demand_plots = False
+plot_solar_plots = True
+
+required_timestep_sec = 5*60
 num_days = 3
 
 path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 input_path = os.path.join(path_to_here, "inputs")
 output_path = os.path.join(path_to_here, "outputs")
 
-#===============================
+#-------------------------------
 
 # Region demand
 non_ev_demand_file = "el_paso_demand.csv"
@@ -94,11 +103,11 @@ bad_forecast_scenarios = [
     ("sunny day", "cloudy day")
     ]
 
-#===============================
+#-------------------------------
 
-time_hrs = np.arange(0, num_days*24*3600, required_timestep)/3600.0
+time_hrs = np.arange(0, num_days*24*3600, required_timestep_sec)/3600.0
 
-#===============================
+#-------------------------------
 
 non_ev_demand_df = pd.read_csv(os.path.join(TE_profiles_dir, non_ev_demand_file))
 
@@ -130,7 +139,7 @@ if plot_ev_demand_plots == True:
     ax.set_xticks(np.arange(0,time_hrs.max()+1.0,24.0))
     ax.set_ylim((0,(int(non_ev_demand_df_demand_MW.max()/100.0)+1)*100.0))
 
-#===============================
+#-------------------------------
 
 ev_demand_df = pd.read_csv(os.path.join(TE_profiles_dir, ev_demand_file))
 
@@ -154,7 +163,7 @@ if plot_ev_demand_plots == True:
     ax.set_xticks(np.arange(0,time_hrs.max()+1.0,24.0))
     ax.set_ylim((0,(int(non_ev_demand_df_demand_MW.max()/100.0)+1)*100.0))
 
-#===============================
+#-------------------------------
 
 solar_df = pd.read_csv(os.path.join(TE_profiles_dir, solar_file))
 solar_df["Time stamp"] = pd.to_datetime(solar_df['Time stamp'], format = "%b %d, %I:%M %p")
@@ -162,7 +171,7 @@ solar_df["Time stamp"] = solar_df["Time stamp"] + pd.DateOffset(years=122)
 
 solar_profiles = {}
 
-for scenario, date in days.items():
+for i, (scenario, date) in enumerate(days.items()):
     
     sub_solar_df = solar_df[solar_df["Time stamp"].dt.date.astype(str) == date]
     
@@ -174,16 +183,32 @@ for scenario, date in days.items():
     solar_profiles[scenario] = solar_MW
     
     if plot_solar_plots == True:
-        fig, ax = plt.subplots(1, 1)
-        ax.plot(time_hrs, solar_MW)
-        ax.set_xlabel("Time (hrs)")
-        ax.set_xlim(0, num_days*24)
-        ax.set_xticks(np.linspace(0, num_days*24, 12+1))
-        ax.set_ylim(-2, 1400)
-        ax.set_ylabel("System power generated (kW)")
-        ax.set_title("{} ({})".format(scenario, date))
 
-#===============================
+        arr_start_idx = int((1*24*3600)/required_timestep_sec)
+        arr_end_idx = int((2*24*3600)/required_timestep_sec)
+        
+        solar_MW_for_plot = solar_MW[arr_start_idx:arr_end_idx]
+        time_hrs_for_plot = time_hrs[arr_start_idx:arr_end_idx]%24
+        
+        plot_title = "{} ({})".format(scenario, date)
+        plot_dir = os.path.join(path_to_here, "figures", "solar_plots")
+
+        if i == 0:
+            reset_dir(plot_dir)
+
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(time_hrs_for_plot, solar_MW_for_plot, label = "solar profile", color = "orange")
+        ax.set_xlabel("Time | hrs")
+        ax.set_xlim(0, 1)
+        ax.set_xticks(np.linspace(0, 24, 12+1))
+        ax.set_ylim(-2, 1400)
+        ax.set_ylabel("System power generated | kW")
+        ax.set_title(plot_title)
+        ax.grid()
+
+        fig.savefig(os.path.join(plot_dir, plot_title), dpi = 300)
+
+#-------------------------------
 
 CE_df = pd.read_csv(os.path.join(TE_profiles_dir, CE_file), keep_default_na=False)
 
@@ -211,7 +236,7 @@ SE_df = pd.read_csv(os.path.join(TE_profiles_dir, SE_file), keep_default_na=Fals
 
 final_SE_df = SE_df[SE_df["SE_id"].isin(final_CE_df["SE_id"])]
 
-#===============================
+#-------------------------------
 
 def clean_input_folder(folder : str):
 
@@ -268,7 +293,7 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         shutil.copytree(uncontrolled_folder, input_subfolder)
         
         clean_input_folder(input_subfolder)
-        create_output_folder(output_subfolder)
+        reset_dir(output_subfolder)
         
         final_CE_df.to_csv(os.path.join(input_subfolder, "CE_controlled.csv"), index = False)
         final_SE_df.to_csv(os.path.join(input_subfolder, "SE_controlled.csv"), index = False)
@@ -296,19 +321,12 @@ def write_input_files(input_path : str, output_path : str, subfolder : str, cost
         with open(os.path.join(input_subfolder, "TE_inputs", "generation_cost.json"), 'w') as fp:
             json.dump(generation_cost, fp, indent=4)
 
-def create_output_folder(output_folder):
-
-    if os.path.exists(output_folder) and os.path.isdir(output_folder):
-        shutil.rmtree(output_folder, ignore_errors=False)
-    
-    os.makedirs(os.path.join(output_folder))    # intermediate directory is also created
-
 # Uncontrolled
 uncontrolled_input_folder = os.path.join(input_path, "uncontrolled")
 uncontrolled_output_folder = os.path.join(output_path, "uncontrolled")
 
 clean_input_folder(uncontrolled_input_folder)
-create_output_folder(uncontrolled_output_folder)
+reset_dir(uncontrolled_output_folder)
 
 final_CE_df.to_csv(os.path.join(uncontrolled_input_folder, "CE_uncontrolled.csv"), index = False)
 final_SE_df.to_csv(os.path.join(uncontrolled_input_folder, "SE_uncontrolled.csv"), index = False)

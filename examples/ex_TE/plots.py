@@ -14,6 +14,17 @@ import sys
 
 path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
+#-----------------------------------
+# Solar profiles
+#-----------------------------------
+
+# Handled in input_generation.py
+
+
+#-----------------------------------
+# Good Forecast Scenarios
+#-----------------------------------
+
 output_folder = os.path.join(path_to_here, "outputs")
 figures_folder = os.path.join(path_to_here, "figures")
 
