@@ -168,7 +168,8 @@ class charge_controller:
             constuctor initializes the charge controller, allocates the controller_2Darr that maintains the status of charge events being controlled.
         '''
         
-        self.plot = False
+        self.plot = True
+        self.debug_plot = False
         self.plots = set()
         self.input_folder = io_dir.inputs_dir
         self.figures_folder = os.path.join(io_dir.outputs_dir, "figures")
@@ -187,7 +188,7 @@ class charge_controller:
         cost_file = os.path.join(self.input_folder, "TE_inputs", "generation_cost.json")
         
         # cost_forcaster contains the cost of energy
-        self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file)
+        self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file, self.figures_folder, self.plot)
         
         # controller_2Darr keeps track of what SE's should be controlled at any given time
         num_SEs = len(SE_ids)
@@ -311,7 +312,7 @@ class charge_controller:
             control_time_index = self.get_time_idx_from_time_sec(profile_time_sec)          
             self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = True
         
-        if self.plot == True:
+        if self.debug_plot == True:
             
             #-------------------------------------------
             #       Build Charge profile timeseries
@@ -382,7 +383,7 @@ class charge_controller:
             plot_name = "{}{}".format(base_name, str(suffix))
             self.plots.add(plot_name)
             
-            os.makedirs(self.figures_folder)
+            os.makedirs(self.figures_folder, exist_ok=True)
             plt.savefig(os.path.join(self.figures_folder, plot_name+".png"))
    
             #self.plot = False
@@ -418,11 +419,14 @@ class TE_cost_forecaster_v2():
         The TE_cost_forecaster will read the input file and compute costs and loads forecasted cost and actual cost as timeseries data 
     '''
     
-    def __init__(self, forecast_input_file : str, actual_input_file : str, cost_input_file : str) -> None:
+    def __init__(self, forecast_input_file : str, actual_input_file : str, cost_input_file : str, figures_folder : str, plot : bool) -> None:
         '''
         Description:
             Loads data, computes cost and stores as timeseries data
         '''
+        
+        self.figures_folder = figures_folder
+        self.plot = plot
         
         # Load forecast and actual generation as dfs
         df_forecast = pd.read_csv(forecast_input_file)
@@ -457,6 +461,14 @@ class TE_cost_forecaster_v2():
         '''
         df.columns = [column.split("|")[0].strip() for column in df.columns.to_series()]
         
+        df_type = None 
+        if df.columns[1] == "forecasted_demand":
+            df_type = "forecast"         
+        elif df.columns[1] == "actual_demand":
+            df_type = "actual"
+        else:
+            raise ValueError('ERROR : Second column in input csv file should be forecasted_demand or actual_demand')
+            
         start_time_sec = round(df["time"][0] * 3600.0)
         timestep_sec = round((df["time"][1] - df["time"][0])*3600)
         
@@ -466,7 +478,7 @@ class TE_cost_forecaster_v2():
         cost_usd_per_kWh = np.zeros(df.shape[0], dtype=float)
         total_cost_usd = np.zeros(df.shape[0], dtype=float)
         
-        individual_costs = []
+        individual_costs = {}
         for gen_type in gen_types:
             
             gen_min = cost_data[gen_type]["gen_min"]            #MW
@@ -486,7 +498,7 @@ class TE_cost_forecaster_v2():
                 if solver_method == "linear":
                     
                     individual_cost_function = (df[gen_type] - gen_min)/(gen_max-gen_min)*(cost_max-cost_min)+ cost_min
-                    individual_costs.append(individual_cost_function)
+                    individual_costs[gen_type] = individual_cost_function
                     
                     total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
                 
@@ -509,7 +521,7 @@ class TE_cost_forecaster_v2():
                     C = solve(A, b)
                     
                     individual_cost_function = C[0][0] * df[gen_type]**0 + C[1][0] * df[gen_type]**1 + C[2][0] * df[gen_type]**2 + C[3][0] * df[gen_type]**3
-                    individual_costs.append(individual_cost_function)
+                    individual_costs[gen_type] = individual_cost_function
                     
                     total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
                     
@@ -532,7 +544,7 @@ class TE_cost_forecaster_v2():
                     C = solve(A, b)
 
                     individual_cost_function = C[0][0] * df[gen_type]**0 + C[1][0] * df[gen_type]**1 + C[2][0] * df[gen_type]**2 + C[3][0] * df[gen_type]**3
-                    individual_costs.append(individual_cost_function)
+                    individual_costs[gen_type] = individual_cost_function
                     
                     total_cost_usd += individual_cost_function*df[gen_type]*timestep_sec/3600.0
                     
@@ -540,26 +552,41 @@ class TE_cost_forecaster_v2():
                     
                     raise ValueError('ERROR : solver_method should be linear or steep_cubic or inverse_s')
             
-            # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+            #if self.plot:
+            #    fig, ax = plt.subplots(1, 1, figsize=(25, 15))
+            #
+            #    ax.plot(df[gen_type], individual_cost_function)
+            #    ax.set_xlabel("Power | MW")
+            #    ax.set_ylabel("Cost | $ per MWh")
+            #
+            #    fig.savefig("fig_" + gen_type + ".png", dpi = 300)
             
-            # ax.plot(df[gen_type], individual_cost_function)
-            # ax.set_xlabel("Power (MW)")
-            # ax.set_ylabel("Cost ($$$ per MWh)")
-        
-            # fig.savefig("fig_" + gen_type + ".png", dpi = 300)
-        
         
         total_MWh_per_timestep = df[gen_types].sum(axis=1) * timestep_sec/3600.0
         cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
         cost_usd_per_kWh = cost_usd_per_MWh/1000.0
         
-        # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
-        # ax.plot(df["time_hrs"], cost_usd_per_kWh)
-        # fig.savefig("fig_" + solver_method + "_time.png", dpi = 300)
-        
-        # fig, ax = plt.subplots(1, 1, figsize=(25, 15))
-        # ax.scatter(df[gen_types].sum(axis=1), cost_usd_per_kWh)
-        # fig.savefig("fig_" + solver_method + "_power.png", dpi = 300)
+#        if self.plot:
+#            
+#            os.makedirs(self.figures_folder, exist_ok= True)
+#        
+#            start_idx = (1*24*3600) / timestep_sec
+#            end_idx = (2*24*3600) / timestep_sec
+#            
+#            fig, ax = plt.subplots(1, 1)
+#            ax.plot(df["time"], individual_costs["fossil_fuel"])
+#            ax.set_xlabel("Time | hrs")
+#            ax.set_ylabel("Cost | $ per kWh")
+#            ax.set_title("Time vs Cost for fossil fuel with {} pricing".format(solver_method))
+#            ax.grid()
+#            fig.savefig(os.path.join(self.figures_folder, "ff_" + df_type + "_" + solver_method + "_time_vs_cost.png"), dpi = 300)
+#        
+#            fig, ax = plt.subplots(1, 1)
+#            ax.scatter(df["fossil_fuel"], individual_costs["fossil_fuel"])
+#            ax.set_xlabel("Power | kW")
+#            ax.set_ylabel("Cost | $ per kWh")
+#            ax.grid()
+#            fig.savefig(os.path.join(self.figures_folder, "ff_" + df_type + "_" + solver_method + "_power_vs_cost.png"), dpi = 300)
                 
         return timeseries(start_time_sec, timestep_sec, cost_usd_per_kWh)
             
