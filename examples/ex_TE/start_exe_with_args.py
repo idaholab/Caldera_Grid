@@ -10,6 +10,7 @@ path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 folders = []
 folders.append(os.path.join(path_to_here,"inputs/uncontrolled/"))
+folders.append(os.path.join(path_to_here,"inputs/time_of_use/"))
 
 #folders.extend(glob.glob(os.path.join(path_to_here,"inputs/good_forecast/linear/*/")))
 

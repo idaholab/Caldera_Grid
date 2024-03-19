@@ -331,7 +331,26 @@ reset_dir(uncontrolled_output_folder)
 final_CE_df.to_csv(os.path.join(uncontrolled_input_folder, "CE_uncontrolled.csv"), index = False)
 final_SE_df.to_csv(os.path.join(uncontrolled_input_folder, "SE_uncontrolled.csv"), index = False)
 
+# Time of use controlled
+
+TOU_input_folder = os.path.join(input_path, "time_of_use")
+TOU_output_folder = os.path.join(output_path, "time_of_use")
+
+if os.path.exists(TOU_input_folder) and os.path.isdir(TOU_input_folder):
+    shutil.rmtree(TOU_input_folder, ignore_errors=False)
+
+shutil.copytree(uncontrolled_input_folder, TOU_input_folder)
+
+clean_input_folder(TOU_input_folder)
+reset_dir(TOU_output_folder)
+        
+final_CE_df["ES_strategy"] = "ES100-A"
+
+final_CE_df.to_csv(os.path.join(TOU_input_folder, "CE_TOU_controlled.csv"), index = False)
+final_SE_df.to_csv(os.path.join(TOU_input_folder, "SE_TOU_controlled.csv"), index = False)
+
 # Activate Control Strategy
+final_CE_df["ES_strategy"] = "NA"
 final_CE_df["Ext_strategy"] = "ext0001"
 
 # Good Forecast
