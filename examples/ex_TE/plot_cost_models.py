@@ -2,9 +2,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import os
+import sys
 
 from scipy.linalg import solve
 
+path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
+figures_folder = os.path.join(path_to_here, "figures")
+cost_models_folder = os.path.join(figures_folder, "cost_models")
+
+os.makedirs(cost_models_folder, exist_ok = True)
 
 gen_min = 500.0 # (Power MW)
 gen_max = 2000.0
@@ -67,6 +74,5 @@ ax.set_ylabel("Cost | $ per MWh")
 ax.legend()
 ax.set_title("Power vs Cost for fossil fuel")
 ax.grid()
-plt.show()
 
-#fig.savefig(os.path.join(self.figures_folder, "ff_" + df_type + "_" + solver_method + "_time_vs_cost.png"), dpi = 300)
+fig.savefig(os.path.join(cost_models_folder, "cost_curves_time_vs_cost.png"), dpi = 300)
