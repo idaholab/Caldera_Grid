@@ -52,11 +52,13 @@ class control_strategy_TE(typeA_control):
         
         self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
         
-        cost_data = self.controller.cost_forecaster.get_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
+        forecasted_cost_data = self.controller.cost_forecaster.get_forecasted_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
+        actual_cost_data = self.controller.cost_forecaster.get_actual_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
         
         cost_df = pd.DataFrame()
-        cost_df["time_hrs"] = np.arange(self.start_simulation_unix_time/3600.0, self.end_simulation_unix_time/3600.0, cost_data.data_timestep_sec/3600.0)
-        cost_df["cost_usd_per_kWh"] = cost_data.data
+        cost_df["time | hrs"] = np.arange(self.start_simulation_unix_time/3600.0, self.end_simulation_unix_time/3600.0, forecasted_cost_data.data_timestep_sec/3600.0)
+        cost_df["forecasted_cost | usd_per_kWh"] = forecasted_cost_data.data
+        cost_df["actual_cost | usd_per_kWh"] = actual_cost_data.data
         cost_df.to_csv(os.path.join(self.io_dir.outputs_dir, "cost_profile.csv"), index = False)
 
         # keeps track of charge events that are handed over to charge controller
@@ -590,13 +592,11 @@ class TE_cost_forecaster_v2():
                 
         return timeseries(start_time_sec, timestep_sec, cost_usd_per_kWh)
             
-    def get_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, req_timestep_sec : float) -> timeseries:
+    def error_check(self, starttime_sec : float, endtime_sec : float, req_timestep_sec : float) -> timeseries:
         '''
         Description:
-            Given a timerange and timestep, looksup the data and returns the cost. 
-            the timerange should match up with data timeperiod.
+            Check if the parameters match up.
         '''
-        
         if not ((self.cost_profile_timestep_sec == req_timestep_sec) or \
                (self.cost_profile_timestep_sec % req_timestep_sec == 0.0) or \
                (req_timestep_sec % self.cost_profile_timestep_sec == 0.0)):
@@ -619,6 +619,16 @@ class TE_cost_forecaster_v2():
            print("req_timestep_sec < 0  should be false: ", req_timestep_sec < 0)
             
            raise ValueError('ERROR : parameters to get_cost_for_time_range are incompatible')
+
+        
+    def get_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, req_timestep_sec : float) -> timeseries:
+        '''
+        Description:
+            Given a timerange and timestep, looksup the data and returns the cost. 
+            the timerange should match up with data timeperiod.
+        '''
+        
+        self.error_check(starttime_sec, endtime_sec, req_timestep_sec)
 
         data = []
         if (self.forecasted_cost_profile.data_timestep_sec >= req_timestep_sec):
@@ -658,6 +668,77 @@ class TE_cost_forecaster_v2():
 
         return timeseries(starttime_sec, req_timestep_sec, data)
 
+    def get_forecasted_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, req_timestep_sec : float) -> timeseries:
+        '''
+        Description:
+            Given a timerange and timestep, looksup the data and returns the forecasted cost. 
+            the timerange should match up with data timeperiod.
+        '''
+        
+        self.error_check(starttime_sec, endtime_sec, req_timestep_sec)
+        
+        data = []
+        if (self.forecasted_cost_profile.data_timestep_sec >= req_timestep_sec):
+            for time_sec in range(int(starttime_sec), int(endtime_sec), int(req_timestep_sec)):
+            
+                cost = self.forecasted_cost_profile.get_val_from_time(time_sec % self.cost_profile_length_sec)
+                data.append(cost)
+                
+        elif (self.forecasted_cost_profile.data_timestep_sec < req_timestep_sec):
+            for time_sec in range(int(starttime_sec), int(endtime_sec), int(req_timestep_sec)):
+                
+                start_sec = time_sec
+                end_sec = time_sec + req_timestep_sec
+                divisor = req_timestep_sec/self.forecasted_cost_profile.data_timestep_sec
+                
+                total_cost = 0    
+                
+                for subtime_sec in range(int(start_sec), int(end_sec), int(self.forecasted_cost_profile.data_timestep_sec)):
+                    total_cost += self.forecasted_cost_profile.get_val_from_time(subtime_sec % self.cost_profile_length_sec)
+                
+                avg_cost = total_cost/divisor
+                data.append(avg_cost)
+                
+        else:
+            raise ValueError('ERROR : get_cost_for_time_range')
+
+        return timeseries(starttime_sec, req_timestep_sec, data)
+
+    def get_actual_cost_for_time_range(self, starttime_sec : float, endtime_sec : float, req_timestep_sec : float) -> timeseries:
+        '''
+        Description:
+            Given a timerange and timestep, looksup the data and returns the actual cost. 
+            the timerange should match up with data timeperiod.
+        '''
+        
+        self.error_check(starttime_sec, endtime_sec, req_timestep_sec)
+        
+        data = []
+        if (self.actual_cost_profile.data_timestep_sec >= req_timestep_sec):
+            for time_sec in range(int(starttime_sec), int(endtime_sec), int(req_timestep_sec)):
+            
+                cost = self.actual_cost_profile.get_val_from_time(time_sec % self.cost_profile_length_sec)    
+                data.append(cost)
+                
+        elif (self.actual_cost_profile.data_timestep_sec < req_timestep_sec):
+            for time_sec in range(int(starttime_sec), int(endtime_sec), int(req_timestep_sec)):
+                
+                start_sec = time_sec
+                end_sec = time_sec + req_timestep_sec
+                divisor = req_timestep_sec/self.forecasted_cost_profile.data_timestep_sec
+                
+                total_cost = 0
+                for subtime_sec in range(int(start_sec), int(end_sec), int(self.forecasted_cost_profile.data_timestep_sec)):
+                    total_cost += self.actual_cost_profile.get_val_from_time(subtime_sec % self.cost_profile_length_sec)
+                
+                avg_cost = total_cost/divisor
+                data.append(avg_cost)
+                
+        else:
+            raise ValueError('ERROR : get_cost_for_time_range')
+
+        return timeseries(starttime_sec, req_timestep_sec, data)
+    
     def get_forecasted_cost_at_time_sec(self, time_sec : float) -> float:
         '''
         Description:
