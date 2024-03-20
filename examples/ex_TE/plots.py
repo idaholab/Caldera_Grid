@@ -58,13 +58,13 @@ def extract_cost_profile_df(folder : str):
 x_lims = (0, 24)
 x_ticks = np.linspace(x_lims[0], x_lims[1], 13)
 
-y_lims = (0, 1000)
+y_lims = (0, 1000000)
 y_ticks = np.linspace(y_lims[0], y_lims[1], 11)
 
 fig_size = (13, 10)
 
 text_x = 0.5
-text_y = 950
+text_y = 950000
 
 
 df_u = extract_power_profile_df("uncontrolled")

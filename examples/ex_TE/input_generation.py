@@ -62,7 +62,7 @@ TE_profiles_dir = os.path.join(path_to_here, "TE_profiles")
 
 # Charge Event file
 CE_file = "CE_ICM_work_dominant_original.csv"
-ratio = 0.001 # ratio of charge events to filter. 1 means all charge events are included and 0 means no charge events are included
+ratio = 1 # ratio of charge events to filter. 1 means all charge events are included and 0 means no charge events are included
 
 # Supply Equipment file
 SE_file = "SE_ICM_work_dominant_original.csv"
