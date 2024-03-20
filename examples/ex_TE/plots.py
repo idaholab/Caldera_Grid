@@ -52,6 +52,12 @@ def extract_cost_profile_df(folder : str):
 # Handled in input_generation.py
 
 #-----------------------------------
+# Fossil fuel profiles
+#-----------------------------------
+
+# Handled in input_generation.py
+
+#-----------------------------------
 # Uncontrolled
 #-----------------------------------
 

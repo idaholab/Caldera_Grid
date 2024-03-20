@@ -210,6 +210,35 @@ for i, (scenario, date) in enumerate(days.items()):
 
 #-------------------------------
 
+for scenario, solar_profile_MW in solar_profiles.items():
+
+    fossil_fuel_demand = non_ev_demand_MW + ev_demand_MW - solar_profile_MW - np.array([622]*len(non_ev_demand_MW))
+
+    plot_dir = os.path.join(path_to_here, "figures", "fossil_fuel_plots")
+    os.makedirs(plot_dir, exist_ok = True)
+
+    plot_title = "fossil fuel demand for {}".format(scenario)
+    
+    arr_start_idx = int((1*24*3600)/required_timestep_sec)
+    arr_end_idx = int((2*24*3600)/required_timestep_sec)
+    
+    fossil_fuel_demand_MW_for_plot = fossil_fuel_demand[arr_start_idx:arr_end_idx]
+    time_hrs_for_plot = time_hrs[arr_start_idx:arr_end_idx]%24
+    
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(time_hrs_for_plot, fossil_fuel_demand_MW_for_plot, label = "fossil_fuel_demand", color = "maroon")
+    ax.set_xlabel("Time | hrs")
+    #ax.set_xlim(0, 1)
+    ax.set_xticks(np.linspace(0, 24, 12+1))
+    ax.set_ylim(400, 2200)
+    ax.set_ylabel("Power demand | kW")
+    ax.set_title(plot_title)
+    ax.grid()
+
+    fig.savefig(os.path.join(plot_dir, plot_title), dpi = 300)
+
+#-------------------------------
+
 CE_df = pd.read_csv(os.path.join(TE_profiles_dir, CE_file), keep_default_na=False)
 
 CE_df['start_time'] = CE_df['start_time'] - 7*24
