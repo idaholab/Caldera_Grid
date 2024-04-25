@@ -1,5 +1,0 @@
-Key,Value,Description
-target_P3_reference__percent_of_maxP3,90,
-max_delta_kW_per_min,1000,
-volt_delta_kW_curve,0.95|-40  ;  0.99|-2  ;  1|0  ;  1.03|0  ;  1.05|10,V1|deltaP1  ;  V2|deltaP2  ;  V3|deltaP3  ;  V4|deltaP4  ;  Vn|deltaPn
-voltage_LPF,is_active|True  ;  seed|40  ;  window_size_LB|2 ;  window_size_UB|18  ;  window_type|Rectangular,

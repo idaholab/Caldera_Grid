@@ -15,12 +15,120 @@ import shutil
 from numpy.random import default_rng
 import json
 
+MIN_PYTHON = (3, 8)
+if sys.version_info < MIN_PYTHON:
+    sys.exit("Python %s.%s or later is required.\n" % MIN_PYTHON)
+
+#-------------------------------
+#      Helper Functions
+#-------------------------------
+
+def setup_io_folder(dir_path : str):
+
+    base_folder = os.path.join(TE_profiles_dir, "base_inputs_folder")
+
+    input_folder = os.path.join(input_path, dir_path)
+    output_folder = os.path.join(output_path, dir_path)
+
+    reset_dir(input_folder)
+    reset_dir(output_folder)
+
+    # dirs_exist_ok exist only in python 3.8 and above
+    shutil.copytree(base_folder, input_folder, dirs_exist_ok = True)
+
+    final_CE_df.to_csv(os.path.join(input_folder, "CE_.csv"), index = False)
+    final_SE_df.to_csv(os.path.join(input_folder, "SE_.csv"), index = False)
+
+
+def clean_input_folder(folder : str):
+
+    files_to_clean = []
+    files_to_clean.extend(glob.glob(os.path.join(folder, "CE_*.csv")))
+    files_to_clean.extend(glob.glob(os.path.join(folder, "SE_*.csv")))
+    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "forecast.csv")))
+    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "actual.csv")))
+    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "generation_cost.json")))
+    
+    for file in files_to_clean:
+        os.remove(file)
+
 def reset_dir(dir_path : str):
 
     if os.path.exists(dir_path) and os.path.isdir(dir_path):
         shutil.rmtree(dir_path, ignore_errors=False)
 
     os.makedirs(os.path.join(dir_path))    # intermediate directory is also created
+
+def write_input_files_for_TE(dir_path : str, scenarios):
+
+    cost_function = ""
+    if "linear" in dir_path:
+        cost_function = "linear"
+    elif "steep_cubic" in dir_path:
+        cost_function = "steep_cubic"
+    elif "inverse_s" in dir_path:
+        cost_function = "inverse_s"
+    else:
+        print("ERROR: Cannot determine cost function")
+        exit()
+    
+    generation_cost = {
+        "cost_function" : cost_function,
+        "fossil_fuel": {
+            "gen_min": 500,
+            "gen_max": 2000,
+            "cost_min": 39.00,
+            "cost_max": 221.00
+        },
+        "nuclear": {
+            "gen_min": 622,
+            "gen_max": 622,
+            "cost_min": 167.00,
+            "cost_max": 167.00
+        },
+        "solar": {
+            "gen_min": -2,
+            "gen_max": 1800,
+            "cost_min": 36.00,
+            "cost_max": 36.00
+        },
+        "units":{
+            "gen_min": "MW",
+            "gen_max": "MW",
+            "cost_min" : "USD per MW",
+            "cost_max" : "USD per MW"
+        }
+    }
+    
+    for i, (forecast, actual) in enumerate(scenarios):
+        
+        io_folder = os.path.join(dir_path, "scenario_{}".format(i))
+        setup_io_folder(io_folder)
+        
+        # forecast
+        forecast_df = pd.DataFrame()
+        forecast_df["time | hrs"] = time_hrs
+        forecast_df["forecasted_demand | MW"] = non_ev_demand_MW + ev_demand_MW
+        forecast_df["nuclear | MW"] = [622] * len(time_hrs)
+        forecast_df["solar | MW"] = solar_profiles[forecast]
+        forecast_df["fossil_fuel | MW"] = forecast_df["forecasted_demand | MW"] - forecast_df["nuclear | MW"] - forecast_df["solar | MW"]
+        
+        forecast_df.to_csv(os.path.join(input_path, io_folder, "TE_inputs", "forecast.csv"), index = False)
+        
+        # actual
+        actual_df = pd.DataFrame()
+        actual_df["time | hrs"] = time_hrs
+        actual_df["actual_demand | MW"] = non_ev_demand_MW + ev_demand_MW
+        actual_df["nuclear | MW"] = [622] * len(time_hrs)
+        actual_df["solar | MW"] = solar_profiles[actual]
+        actual_df["fossil_fuel | MW"] = actual_df["actual_demand | MW"] - actual_df["nuclear | MW"] - actual_df["solar | MW"]
+        
+        actual_df.to_csv(os.path.join(input_path, io_folder, "TE_inputs", "actual.csv"), index = False)
+        
+        # generation_cost
+        with open(os.path.join(input_path, io_folder, "TE_inputs", "generation_cost.json"), 'w') as fp:
+            json.dump(generation_cost, fp, indent=4)
+
 
 #-------------------------------
 
@@ -36,16 +144,16 @@ output_path = os.path.join(path_to_here, "outputs")
 
 #-------------------------------
 
-# Region demand
+# Region demand inputs
 non_ev_demand_file = "el_paso_demand.csv"
 non_ev_demand_day = 2
 non_ev_demand_timestep_sec = 5*60
 
-# EV charing demand
+# EV charing demand inputs
 ev_demand_file = "EV_charging.csv"
 ev_demand_timestep_sec = 1*60
 
-# Solar demand
+# Solar demand inputs
 solar_file = "el_paso_solar_2022_results.csv"
 solar_timestep_sec = 5*60
 days = {
@@ -62,7 +170,7 @@ TE_profiles_dir = os.path.join(path_to_here, "TE_profiles")
 
 # Charge Event file
 CE_file = "CE_ICM_work_dominant_original.csv"
-ratio = 1 # ratio of charge events to filter. 1 means all charge events are included and 0 means no charge events are included
+ratios = [0.001, 0.005] # ratio of charge events to filter. 1 means all charge events are included and 0 means no charge events are included
 
 # Supply Equipment file
 SE_file = "SE_ICM_work_dominant_original.csv"
@@ -240,6 +348,7 @@ for scenario, solar_profile_MW in solar_profiles.items():
 #-------------------------------
 
 CE_df = pd.read_csv(os.path.join(TE_profiles_dir, CE_file), keep_default_na=False)
+SE_df = pd.read_csv(os.path.join(TE_profiles_dir, SE_file), keep_default_na=False)
 
 CE_df['start_time'] = CE_df['start_time'] - 7*24
 CE_df['end_time_prk'] = CE_df['end_time_prk'] - 7*24
@@ -248,146 +357,43 @@ df_home = CE_df[(CE_df["charge_event_id"] >= 100000000) & (CE_df["charge_event_i
 df_work = CE_df[(CE_df["charge_event_id"] >= 200000000) & (CE_df["charge_event_id"] < 300000000)]
 df_destin = CE_df[(CE_df["charge_event_id"] >= 300000000) & (CE_df["charge_event_id"] < 400000000)]
 
-rng = default_rng(seed = 0)
 
-# rng.choice generates n random numbers between 0 and input val, replace = False make the numbers unique
-random_home_indices = np.sort(rng.choice(len(df_home), size=int(ratio*len(df_home)), replace=False))
-random_work_indices = np.sort(rng.choice(len(df_work), size=int(ratio*len(df_work)), replace=False))
-random_destin_indices = np.sort(rng.choice(len(df_destin), size=int(ratio*len(df_destin)), replace=False))
+for ratio in ratios:
 
-df_home2 = df_home.iloc[random_home_indices, :]
-df_work2 = df_work.iloc[random_work_indices, :]
-df_destin2 = df_destin.iloc[random_destin_indices, :]
+    ratio_str = str(ratio).replace(".", "_")
+    rng = default_rng(seed = 0)
 
-final_CE_df = pd.concat([df_home2, df_work2, df_destin2])
+    # rng.choice generates n random numbers between 0 and input val, replace = False make the numbers unique
+    random_home_indices = np.sort(rng.choice(len(df_home), size=int(ratio*len(df_home)), replace=False))
+    random_work_indices = np.sort(rng.choice(len(df_work), size=int(ratio*len(df_work)), replace=False))
+    random_destin_indices = np.sort(rng.choice(len(df_destin), size=int(ratio*len(df_destin)), replace=False))
 
-SE_df = pd.read_csv(os.path.join(TE_profiles_dir, SE_file), keep_default_na=False)
+    df_home2 = df_home.iloc[random_home_indices, :]
+    df_work2 = df_work.iloc[random_work_indices, :]
+    df_destin2 = df_destin.iloc[random_destin_indices, :]
 
-final_SE_df = SE_df[SE_df["SE_id"].isin(final_CE_df["SE_id"])]
+    final_CE_df = pd.concat([df_home2, df_work2, df_destin2])
+    final_SE_df = SE_df[SE_df["SE_id"].isin(final_CE_df["SE_id"])]
 
-#-------------------------------
-
-def clean_input_folder(folder : str):
-
-    files_to_clean = []
-    files_to_clean.extend(glob.glob(os.path.join(folder, "CE_*.csv")))
-    files_to_clean.extend(glob.glob(os.path.join(folder, "SE_*.csv")))
-    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "forecast.csv")))
-    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "actual.csv")))
-    files_to_clean.extend(glob.glob(os.path.join(folder, "TE_inputs", "generation_cost.json")))
+    # Uncontrolled 
+    io_folder = os.path.join(ratio_str, "uncontrolled")
+    setup_io_folder(io_folder)
     
-    for file in files_to_clean:
-        os.remove(file)
-
-
-def write_input_files(input_path : str, output_path : str, subfolder : str, cost_function : str, scenarios):
+    # time_of_use
+    io_folder = os.path.join(ratio_str, "time_of_use")
+    final_CE_df["ES_strategy"] = "ES100-A"
+    setup_io_folder(io_folder)
     
-    generation_cost = {
-        "cost_function" : cost_function,
-        "fossil_fuel": {
-            "gen_min": 500,
-            "gen_max": 2000,
-            "cost_min": 39.00,
-            "cost_max": 221.00
-        },
-        "nuclear": {
-            "gen_min": 622,
-            "gen_max": 622,
-            "cost_min": 167.00,
-            "cost_max": 167.00
-        },
-        "solar": {
-            "gen_min": -2,
-            "gen_max": 1800,
-            "cost_min": 36.00,
-            "cost_max": 36.00
-        },
-        "units":{
-            "gen_min": "MW",
-            "gen_max": "MW",
-            "cost_min" : "USD per MW",
-            "cost_max" : "USD per MW"
-        }
-    }
+    # Activate Control Strategy
+    final_CE_df["ES_strategy"] = "NA"
+    final_CE_df["Ext_strategy"] = "ext0001"
+
+    # Good Forecast
+    write_input_files_for_TE(os.path.join(ratio_str, "good_forecast", "linear"), good_forecast_scenarios)
+    write_input_files_for_TE(os.path.join(ratio_str, "good_forecast", "steep_cubic"), good_forecast_scenarios)
+    write_input_files_for_TE(os.path.join(ratio_str, "good_forecast", "inverse_s"), good_forecast_scenarios)
     
-    for i, (forecast, actual) in enumerate(scenarios):
-        
-        uncontrolled_folder = os.path.join(input_path, "uncontrolled")
-        input_subfolder = os.path.join(input_path, subfolder, cost_function, "scenario_{}".format(i))
-        output_subfolder = os.path.join(output_path, subfolder, cost_function, "scenario_{}".format(i))
-
-        if os.path.exists(input_subfolder) and os.path.isdir(input_subfolder):
-            shutil.rmtree(input_subfolder, ignore_errors=False)
-        
-        shutil.copytree(uncontrolled_folder, input_subfolder)
-        
-        clean_input_folder(input_subfolder)
-        reset_dir(output_subfolder)
-        
-        final_CE_df.to_csv(os.path.join(input_subfolder, "CE_controlled.csv"), index = False)
-        final_SE_df.to_csv(os.path.join(input_subfolder, "SE_controlled.csv"), index = False)
-        
-        # forecast
-        forecast_df = pd.DataFrame()
-        forecast_df["time | hrs"] = time_hrs
-        forecast_df["forecasted_demand | MW"] = non_ev_demand_MW + ev_demand_MW
-        forecast_df["nuclear | MW"] = [622] * len(time_hrs)
-        forecast_df["solar | MW"] = solar_profiles[forecast]
-        forecast_df["fossil_fuel | MW"] = forecast_df["forecasted_demand | MW"] - forecast_df["nuclear | MW"] - forecast_df["solar | MW"]
-        
-        forecast_df.to_csv(os.path.join(input_subfolder, "TE_inputs", "forecast.csv"), index = False)
-        
-        # actual
-        actual_df = pd.DataFrame()
-        actual_df["time | hrs"] = time_hrs
-        actual_df["actual_demand | MW"] = non_ev_demand_MW + ev_demand_MW
-        actual_df["nuclear | MW"] = [622] * len(time_hrs)
-        actual_df["solar | MW"] = solar_profiles[actual]
-        actual_df["fossil_fuel | MW"] = actual_df["actual_demand | MW"] - actual_df["nuclear | MW"] - actual_df["solar | MW"]
-        
-        actual_df.to_csv(os.path.join(input_subfolder, "TE_inputs", "actual.csv"), index = False)
-        
-        with open(os.path.join(input_subfolder, "TE_inputs", "generation_cost.json"), 'w') as fp:
-            json.dump(generation_cost, fp, indent=4)
-
-# Uncontrolled
-uncontrolled_input_folder = os.path.join(input_path, "uncontrolled")
-uncontrolled_output_folder = os.path.join(output_path, "uncontrolled")
-
-clean_input_folder(uncontrolled_input_folder)
-reset_dir(uncontrolled_output_folder)
-
-final_CE_df.to_csv(os.path.join(uncontrolled_input_folder, "CE_uncontrolled.csv"), index = False)
-final_SE_df.to_csv(os.path.join(uncontrolled_input_folder, "SE_uncontrolled.csv"), index = False)
-
-# Time of use controlled
-
-TOU_input_folder = os.path.join(input_path, "time_of_use")
-TOU_output_folder = os.path.join(output_path, "time_of_use")
-
-if os.path.exists(TOU_input_folder) and os.path.isdir(TOU_input_folder):
-    shutil.rmtree(TOU_input_folder, ignore_errors=False)
-
-shutil.copytree(uncontrolled_input_folder, TOU_input_folder)
-
-clean_input_folder(TOU_input_folder)
-reset_dir(TOU_output_folder)
-        
-final_CE_df["ES_strategy"] = "ES100-A"
-
-final_CE_df.to_csv(os.path.join(TOU_input_folder, "CE_TOU_controlled.csv"), index = False)
-final_SE_df.to_csv(os.path.join(TOU_input_folder, "SE_TOU_controlled.csv"), index = False)
-
-# Activate Control Strategy
-final_CE_df["ES_strategy"] = "NA"
-final_CE_df["Ext_strategy"] = "ext0001"
-
-# Good Forecast
-write_input_files(input_path, output_path, "good_forecast", "linear", good_forecast_scenarios)
-write_input_files(input_path, output_path, "good_forecast", "steep_cubic", good_forecast_scenarios)
-write_input_files(input_path, output_path, "good_forecast", "inverse_s", good_forecast_scenarios)
-
-# Bad Forecast
-write_input_files(input_path, output_path, "bad_forecast", "linear", bad_forecast_scenarios)
-write_input_files(input_path, output_path, "bad_forecast", "steep_cubic", bad_forecast_scenarios)
-write_input_files(input_path, output_path, "bad_forecast", "inverse_s", bad_forecast_scenarios)
+    # Bad Forecast
+    write_input_files_for_TE(os.path.join(ratio_str, "bad_forecast", "linear"), bad_forecast_scenarios)
+    write_input_files_for_TE(os.path.join(ratio_str, "bad_forecast", "steep_cubic"), bad_forecast_scenarios)
+    write_input_files_for_TE(os.path.join(ratio_str, "bad_forecast", "inverse_s"), bad_forecast_scenarios)
