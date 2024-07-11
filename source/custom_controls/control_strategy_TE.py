@@ -181,16 +181,22 @@ class charge_controller:
         self.controller_endtime_sec = endtime_sec + self.forecast_duration_sec
         self.controller_timestep_sec = timestep_sec
         self.charge_profile_timestep_sec = 60           # 1 minute timestep
-            
+        
+        self.use_cost_forecaster_v3 = True
+        
         # CP_interface_v2 generates charge profiles
         self.charge_profiles = CP_interface_v2(self.input_folder)
         
-        forecast_file = os.path.join(self.input_folder, "TE_inputs", "forecast.csv")
-        actual_file = os.path.join(self.input_folder, "TE_inputs", "actual.csv")
-        cost_file = os.path.join(self.input_folder, "TE_inputs", "generation_cost.json")
+        if self.use_cost_forecaster_v3:
+            self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.input_folder, "TE_inputs"))
+        else:
+            
+            forecast_file = os.path.join(self.input_folder, "TE_inputs", "forecast.csv")
+            actual_file = os.path.join(self.input_folder, "TE_inputs", "actual.csv")
+            cost_file = os.path.join(self.input_folder, "TE_inputs", "generation_cost.json")
         
-        # cost_forcaster contains the cost of energy
-        self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file, self.figures_folder, self.plot)
+            # cost_forcaster contains the cost of energy
+            self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file, self.figures_folder, self.plot)
         
         # controller_2Darr keeps track of what SE's should be controlled at any given time
         num_SEs = len(SE_ids)
@@ -293,7 +299,10 @@ class charge_controller:
         #       Build cost profile timeseries
         #-------------------------------------------
         
-        cost_profile = self.cost_forecaster.get_cost_for_time_range(start_time_sec, end_time_sec, self.controller_timestep_sec)
+        if self.use_cost_forecaster_v3:
+            cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, start_time_sec, end_time_sec, self.controller_timestep_sec)
+        else:
+            cost_profile = self.cost_forecaster.get_cost_for_time_range(start_time_sec, end_time_sec, self.controller_timestep_sec)
         
         #-------------------------------------------
         #       Select least cost times 
@@ -413,8 +422,8 @@ class charge_controller:
 
             PQ_setpoints.append(X)
         
-        return PQ_setpoints    
-
+        return PQ_setpoints
+    
 class TE_cost_forecaster_v2():
     '''
     Description:
@@ -766,3 +775,547 @@ class TE_cost_forecaster_v2():
         time_sec %= self.cost_profile_length_sec
     
         return self.actual_cost_profile.get_val_from_time(time_sec)
+
+class TE_cost_forecaster_v3():
+    
+    def __init__(
+            self, input_folder: str, figures_folder: str, plot: bool) -> None:
+        
+        loader = load_demand_gen_files("TE_inputs")                             # loader object
+        (self.dem_dict, self.gen_dict, self.cost_dict) = loader.load()          # loads all input file
+        
+        self.solver = cost_solver(self.cost_dict)
+        
+        self.forecast_dur_s = 48*3600                                           # How long in the future can we forecast
+        self.forecast_ts_s = 1*3600                                             # The timestep in which forecast data is available 
+        self.actual_ts_s = 1*3600                                               # The timestep in which actual data is available
+        self.actual_known_for_time = 0.25*3600
+        
+    def check_time_values(
+            self, start_time_sec: float, end_time_sec: float, 
+            req_time_step_sec: float) -> None:
+        
+        # Ensure time_range doesn't go beyond forecast_duration
+        assert end_time_sec - start_time_sec < self.forecast_dur_s, \
+            "requested time range ({}, {}) hrs is beyond forecast duration of {} hrs"\
+            .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
+        
+        # Ensure self.forecast_time_step_sec is a multiple of req_time_step_sec
+        assert abs(math.fmod(self.actual_ts_s, req_time_step_sec)) < 0.001, \
+            "requested time range ({}, {}) hrs is beyond forecast duration of {} hrs"\
+            .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
+        
+        # Ensure start_time_sec is a perfect multiple of req_time_step_sec
+        assert abs(math.fmod(start_time_sec, req_time_step_sec)) < 0.001 , \
+            "start_time_sec: {} should be a multiple of actual_ts_s: {}"\
+            .format(start_time_sec, self.actual_ts_s)
+        
+        # Ensure end_time_sec is a perfect multiple of time_range
+        assert abs(math.fmod(end_time_sec, req_time_step_sec)) < 0.001 , \
+            "end_time_sec: {} should be a multiple of req_time_step_sec: {}"\
+            .format(end_time_sec, req_time_step_sec)
+        
+        # Ensure time_step is a perfect multiple of time_range
+        assert abs(math.fmod(end_time_sec - start_time_sec, req_time_step_sec)) < 0.001 , \
+            "requested time_range_sec: {} should be a multiple of req_time_step_sec: {}"\
+            .format(end_time_sec - start_time_sec, req_time_step_sec)
+    
+    def get_data_for_time_sec( self, data_id: str, data_type: str, cur_time_sec: float):
+        
+        if data_id in self.dem_dict:
+            (metadata_dict, frcst_metadata_dict, data_dict) = self.dem_dict[data_id]
+        elif data_id in self.gen_dict:
+            (metadata_dict, frcst_metadata_dict, data_dict) = self.gen_dict[data_id]
+        else:
+            assert False, "data_id: {} is not present in demand data nor generation data"
+        
+        if data_type == "actual":
+            column_id = "actual"
+            column_ts = self.actual_ts_s
+            
+        elif data_type == "forecast":
+            
+            column_id = None
+            column_ts = self.forecast_ts_s
+            
+            # switch key and values in forecast_metadata_dict so that we can iterate through release_time
+            rel_t_to_frcst_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
+            
+            # Start from 1st forecast until the forecast that's active during cur_time_sec
+            for (release_time_hrs, forecast_id) in rel_t_to_frcst_id_d.items():
+                if (release_time_hrs*3600 <= cur_time_sec):
+                    (frcst_rel_t_s, frcst_st_t_s, frcst_end_t_s, frcst_ts_s, frcst_of_s) = frcst_metadata_dict[forecast_id]
+                    
+                    if cur_time_sec >= frcst_st_t_s and cur_time_sec < frcst_end_t_s:
+                        column_id = forecast_id
+                else:
+                    break
+        else:
+            assert False, "Error, check here!!"
+        
+        assert column_id is not None, "column_id is None, that should not happen"
+        
+        df = data_dict[column_id]
+        df_time = cur_time_sec - (cur_time_sec % column_ts)
+        
+        start =  df["{}_time".format(column_id)].iloc[0]
+        end = df["{}_time".format(column_id)].iloc[-1]
+        
+        assert df_time >= start and df_time < end, \
+            "time not in the dataframe"
+        
+        return [float(df[df["{}_time".format(column_id)] == df_time][column_id])]
+    
+    def get_forecast_data_for_time_range(
+            self, data_id: str, cur_time_sec: float, start_time_sec: float, 
+            end_time_sec: float, req_time_step_sec: float):
+        
+        self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
+        
+        if data_id in self.dem_dict:
+            (metadata_dict, frcst_metadata_dict, data_dict) = self.dem_dict[data_id]
+        elif data_id in self.gen_dict:
+            (metadata_dict, frcst_metadata_dict, data_dict) = self.gen_dict[data_id]
+        else:
+            assert False, "data_id: {} is not present in demand data nor generation data"
+        
+        data = np.zeros(int((end_time_sec - start_time_sec) / self.forecast_ts_s))
+        
+        # switch key and values in forecast_metadata_dict so that we can iterate through release_time
+        rel_t_to_frcst_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
+        
+        # Start from 1st forecast until the forecast that's active during cur_time_sec
+        for (release_time_hrs, forecast_id) in rel_t_to_frcst_id_d.items():
+            if (release_time_hrs*3600 <= cur_time_sec):
+                # frcst_rel_t_s = Forecast Release Time Sec
+                # frcst_st_t_s = Forecast Start Time Sec
+                # frcst_end_t_s = Forecast End Time Sec
+                # frcst_ts_s = Forecast Time Step Sec
+                # frcst_of = Forecast Offset Sec
+                (frcst_rel_t_s, frcst_st_t_s, frcst_end_t_s, frcst_ts_s, frcst_of_s) = frcst_metadata_dict[forecast_id]
+                
+                # Check for overlap between forecast start end and requested start end
+                overlap_start = max(start_time_sec, frcst_st_t_s)
+                overlap_end = min(end_time_sec, frcst_end_t_s)
+                
+                if (overlap_start < overlap_end):
+                    df = data_dict[forecast_id]
+                    forecast_arr = df[ (df["{}_time".format(forecast_id)] >= overlap_start) & (df["{}_time".format(forecast_id)] < overlap_end) ][forecast_id]
+                    
+                    forecast_idx = np.arange(int((overlap_start-start_time_sec)/self.forecast_ts_s), int((overlap_end-start_time_sec)/self.forecast_ts_s))
+                    np.put(data, forecast_idx, forecast_arr)
+            else:
+                break
+                
+        
+        # convert timestep to req_time_step_sec
+        multiple = self.forecast_ts_s/req_time_step_sec
+        final_data = np.repeat(data, multiple)
+
+        return final_data
+        
+    def get_data_for_time_range(
+            self, data_id:float, cur_time_sec:float, start_time_sec: float, 
+            end_time_sec: float, req_time_step_sec: float):
+        
+        arr = self.get_forecast_data_for_time_range(data_id, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        
+        if cur_time_sec >= start_time_sec and cur_time_sec < end_time_sec:
+            
+            idx = int((cur_time_sec-start_time_sec)/req_time_step_sec)
+            arr[idx] = self.get_data_for_time_sec(data_id, "actual", cur_time_sec)[0]
+        
+        return arr
+        
+    def get_cost_for_time_range(
+            self, cur_time_sec:float, start_time_sec: float, 
+            end_time_sec: float, req_time_step_sec: float):
+        
+        dem_data = pd.DataFrame()
+        gen_data = pd.DataFrame()
+        
+        # get all known data
+        dem_data["demand"] = self.get_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["nuclear"] = self.get_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["solar"] = self.get_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["wind"] = self.get_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)        
+        gen_data["fossil_fuel"] = dem_data["demand"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
+        
+        gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
+        
+        total_cost_usd = np.zeros(int((end_time_sec - start_time_sec) / req_time_step_sec))
+        
+        for (data_id, arr) in gen_data.items():
+            cost_function = self.solver.solve(arr, self.cost_dict[data_id])
+            total_cost_usd += cost_function*arr*req_time_step_sec/3600.0
+            
+        total_MWh_per_timestep = gen_data.sum(axis=1) * req_time_step_sec/3600.0
+        cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
+        cost_usd_per_kWh = cost_usd_per_MWh/1000.0
+        
+        return cost_usd_per_kWh
+    
+    def get_cost_at_time_sec(self, cost_type:str, time_sec:float):
+        req_time_step_sec = 0.25 * 3600
+        
+        dem_data = pd.DataFrame()
+        gen_data = pd.DataFrame()
+
+        dem_data["demand"] = self.get_data_for_time_sec("demand", cost_type, time_sec)
+        gen_data["nuclear"] = self.get_data_for_time_sec("nuclear", cost_type, time_sec)
+        gen_data["solar"] = self.get_data_for_time_sec("solar", cost_type, time_sec)
+        gen_data["wind"] = self.get_data_for_time_sec("wind", cost_type, time_sec)      
+            
+        gen_data["fossil_fuel"] = dem_data["demand"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
+        
+        gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
+        
+        total_cost_usd = 0.0
+        
+        for (data_id, arr) in gen_data.items():
+            cost_function = self.solver.solve(arr, self.cost_dict[data_id])
+            total_cost_usd += cost_function*arr*req_time_step_sec/3600.0
+            
+        total_MWh_per_timestep = gen_data.sum(axis=1) * req_time_step_sec/3600.0
+        cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
+        cost_usd_per_kWh = cost_usd_per_MWh/1000.0
+        
+        return cost_usd_per_kWh
+        
+    def get_forecasted_cost_at_time_sec(self, time_sec:float):
+        
+        return self.get_cost_at_time_sec("forecast", time_sec)[0]
+    
+    def get_actual_cost_at_time_sec(self, time_sec:float):
+        
+        return self.get_cost_at_time_sec("actual", time_sec)[0]
+
+class load_demand_gen_files():
+    
+    def __init__(self, input_folder : str) -> None:
+        
+        self.file_extension = ".csv"
+        self.demand_files = ["demand"]
+        self.generation_files = ["nuclear", "solar", "wind", "fossil_fuel"]
+        self.current_file_being_read = ""
+        
+    def load(self):
+        
+        demand_dict = {}
+        generation_dict = {}
+        
+        for file in self.demand_files:                                          # load demand files
+             demand_dict[file] = self.load_file(file + self.file_extension)
+           
+        for file in self.generation_files:                                      # load generation files
+             generation_dict[file] = self.load_file(file + self.file_extension)
+        
+        #self.perform_multifile_error_checks()
+        
+        cost_dict = {}
+        for (gen_type, value) in  generation_dict.items():
+            metadata_dict = generation_dict[gen_type][0]
+            local_cost_dict = {}
+            local_cost_dict["gen_min"] = metadata_dict["gen_min"]
+            local_cost_dict["cost_min"] = metadata_dict["cost_min"]
+            local_cost_dict["gen_max"] = metadata_dict["gen_max"]
+            local_cost_dict["cost_max"] = metadata_dict["cost_max"]
+            local_cost_dict["cost_function"] = metadata_dict["cost_function"]
+            cost_dict[gen_type] = local_cost_dict
+        
+        
+        
+        return (demand_dict, generation_dict, cost_dict)
+    
+    # This is incomplete
+    def perform_multifile_error_checks(self, demand_dict, generation_dict):
+        
+        # Get these info
+        #1. actual_ts_s
+        #2. forecast_ts_s
+        #3. forcast_of_s
+        #4. forecast_l_s
+        
+        all_files = self.demand_files + self.generation_files
+        for (i, (file, value))in eval(dict(demand_dict, **generation_dict).items()):
+            (metadata_dict, forecast_metadata_dict, data_dict) = value
+            
+            if i == 0:    
+                for (forecast_id, data_tup) in forecast_metadata_dict.items():
+                    (release_time_sec, start_time_sec, end_time_sec, time_step_sec, offset_sec) = data_tup
+                    forecast_ts_s = time_step_sec
+                    forcast_of_s = start_time_sec - release_time_sec
+                    forecast_l_s = (end_time_sec - start_time_sec)/time_step_sec
+        pass
+    
+    def load_file(self, file_name : str):
+        
+        self.current_file_being_read = file_name                                # Update file being read
+        
+        df_full = pd.read_csv(file_name)                                        # Read the full csv file
+        df_full = self.perform_df_format_checks(df_full)                        # Ensure file formatting is right
+            
+        metadata_dict = self.extract_metadata_dict(df_full)                     # Extract metadata dictionary
+        forecast_metadata_dict = self.extract_forecast_metadata_dict(df_full)   # Extract forecast metadata dictionary
+        data_dict = self.extract_data_dict(df_full, forecast_metadata_dict)     # Extract data dictionary
+        
+        return_val = self.perform_error_checks(                                 # Perform error checks and return updated data
+            metadata_dict, forecast_metadata_dict, data_dict)
+        
+        return return_val
+    
+    def perform_df_format_checks(self, df_full):
+        
+        self.check_column_headers(df_full)                                      # Check column headers
+        df_full.columns = self.extract_header_without_units(df_full.columns)    # Remove units from column headers
+        
+        return df_full
+        
+    def perform_error_checks(
+            self, metadata_dict, forecast_metadata_dict, data_dict):
+        
+        # Ensure metadata contains gen_min, cost_min, gen_max, cost_max
+
+        required_keys = set()
+        required_keys.add(("cost_min", "$/MWh"))
+        required_keys.add(("cost_max", "$/MWh"))
+        required_keys.add(("gen_min", "MW"))
+        required_keys.add(("gen_max", "MW"))
+        required_keys.add(("cost_function", "str"))
+        
+        updated_metadata_dict = dict()
+        metadata_keys = set()
+        for (key, value) in metadata_dict.items():
+            
+            key_split = key.split("|")
+            assert len(key_split) == 2, \
+                "{}: in metadata column, {} does not contain key and value seperated by |"\
+                    .format(self.current_file_being_read, key)
+                    
+            key_id = key_split[0].strip()
+            key_unit = key_split[1].strip()
+            
+            metadata_keys.add((key_id, key_unit))
+            
+            if key_unit == "$/MWh" : value = float(value)
+            elif key_unit == "MW" : value = float(value)
+            elif key_unit == "str" : value = str(value)
+            else : value = str(value)
+            
+            updated_metadata_dict[key_id] = value
+
+        for req_key in required_keys:
+            
+            assert req_key in metadata_keys, \
+                "{}: metadata does not contain key: {} | {}"\
+                    .format(self.current_file_being_read, req_key[0], req_key[1])
+        
+        for (data_id, timeseries_df) in data_dict.items():
+            
+            if len(timeseries_df) > 0:
+                # Check data is within the bounds of Gen min and Gen max 
+                assert timeseries_df[data_id].min() >= updated_metadata_dict["gen_min"], \
+                    "{}: in {} column, the min data:{} is less than gen_min: {}" \
+                        .format(self.current_file_being_read, data_id, timeseries_df[data_id].min(), updated_metadata_dict["gen_min"])
+                        
+                # Check data is within the bounds of Gen min and Gen max 
+                assert timeseries_df[data_id].max() <= updated_metadata_dict["gen_max"], \
+                    "{}: in {} column, the max data:{} is greater than gen_max: {}" \
+                        .format(self.current_file_being_read, data_id, timeseries_df[data_id].max(), updated_metadata_dict["gen_max"])
+            
+                # Check df doesn't have any missing data
+                assert not timeseries_df.isnull().values.any(), \
+                    "{}: in {} column, there is missing data" \
+                        .format(self.current_file_being_read, data_id)
+            
+        return (updated_metadata_dict, forecast_metadata_dict, data_dict)
+    
+    def extract_data_dict(self, df_full, forecast_metadata_dict) -> dict:
+    
+        data_dict = {}
+        
+        all_keys = set()
+        all_keys.add("actual")
+        all_keys.update(forecast_metadata_dict.keys())
+    
+        for key in all_keys:
+        
+            columns_to_read = [key + "_time", key]
+            
+            data_df = df_full[columns_to_read]
+            data_df = data_df.dropna(how = 'all')
+            data_df[key + "_time"] = data_df[key + "_time"] * 3600.0
+            data_dict[key] = data_df
+    
+        return data_dict
+
+    def extract_header_without_units(self, columns):
+        return [column.split('|')[0].strip() for column in columns]
+        
+    def extract_forecast_metadata_dict(self, df_full):
+        
+        forecast_metadata_dict = {}     # return_val
+       
+        forecast_metadata_columns = ["forecast_id", "forecast_release_time"]
+        df_forecast_metadata = df_full[forecast_metadata_columns]
+        df_forecast_metadata = df_forecast_metadata.dropna(how = 'all')
+        
+        forecast_id_to_release_time_dict = dict(
+            zip(df_forecast_metadata.forecast_id, df_forecast_metadata.forecast_release_time))
+        
+        for forecast_id in forecast_id_to_release_time_dict.keys():
+            
+            release_time_sec = forecast_id_to_release_time_dict[forecast_id]
+            
+            df_forecast_time = df_full[forecast_id + "_time"].dropna(how = 'all')
+            
+            start_time_sec = df_forecast_time.iloc[0] * 3600
+            time_step_sec = (df_forecast_time.iloc[1] - df_forecast_time.iloc[0] ) * 3600
+            end_time_sec = start_time_sec + len(df_forecast_time)*time_step_sec
+            offset_sec = start_time_sec - release_time_sec
+            
+            forecast_metadata_dict[forecast_id] = (release_time_sec, start_time_sec, end_time_sec, time_step_sec, offset_sec)            
+        
+        return forecast_metadata_dict
+    
+    def extract_metadata_dict(self, df_full) -> dict:
+        metadata_cols=["metadata_key", "metadata_value"]
+        
+        metadata_df = df_full[metadata_cols]
+        metadata_df = metadata_df.dropna(how = 'all')
+        metadata_dict = dict(zip(metadata_df.metadata_key, metadata_df.metadata_value))
+        return metadata_dict
+        
+    
+    def check_column_headers(self, df_full):
+        
+        column_headers = df_full.columns.tolist()
+
+        # Note : Please use atleast python 3.7. dictionary is ordered in python 3.7 and above
+        import sys
+        assert sys.version_info >= (3, 7)
+
+        column_name_unit_dict = {}
+        column_name_unit_dict["metadata_key"] = "str"
+        column_name_unit_dict["metadata_value"] = "any"
+        column_name_unit_dict["forecast_id"] = "str"
+        column_name_unit_dict["forecast_release_time"] = "hrs"
+        column_name_unit_dict["actual_time"] = "hrs"
+        column_name_unit_dict["actual"] = "MW"
+        column_name_unit_dict["forecast_time"] = "hrs"
+        column_name_unit_dict["forecast_val"] = "MW"
+
+        # Check for first 6 columns that's defined        
+        for i in range(6):
+    
+            column_name = column_headers[i].split("|")[0].strip()
+            column_unit = column_headers[i].split("|")[1].strip()
+    
+            assert column_name == list(column_name_unit_dict.keys())[i], \
+                "{}: column {} name should be {}"\
+                    .format(self.current_file_being_read, i, list(column_name_unit_dict.keys())[i])
+            assert column_unit == column_name_unit_dict[column_name], \
+                "{}: columns {} unit should be {}"\
+                    .format(self.current_file_being_read, i, column_name_unit_dict[column_name])
+
+        forecast_id_columns_df = df_full["forecast_id | str"]
+
+        # Check remaining column names and units in the file
+        for i in range(6, len(column_headers)):
+    
+            forecast_id_idx = int(i/2) - 3
+            forecast_id = forecast_id_columns_df.iloc[forecast_id_idx]
+        
+            column_name = column_headers[i].split("|")[0].strip()
+            column_unit = column_headers[i].split("|")[1].strip()
+    
+            if i%2 == 0:    # Time column
+                assert column_name == forecast_id + "_time", \
+                    "{}: column {} name should be {}"\
+                        .format(self.current_file_being_read, i, forecast_id + "_time")
+                assert column_unit == "hrs", \
+                    "{}: column {} unit should be {}"\
+                        .format(self.current_file_being_read, i, "hrs")
+    
+            else:           # Value column
+                assert column_name == forecast_id, \
+                    "{}: column {} name should be {}"\
+                        .format(self.current_file_being_read, i, forecast_id)
+                assert column_unit == "MW", \
+                    "{}: column {} unit should be {}"\
+                        .format(self.current_file_being_read, i, "hrs")
+
+class cost_solver():
+    
+    def __init__(self, cost_dict):
+        pass        
+        
+    
+    def solve(self, arr, cost_dict):
+        
+        gen_min = cost_dict["gen_min"]
+        gen_max = cost_dict["gen_max"]
+        cost_min = cost_dict["cost_min"]
+        cost_max = cost_dict["cost_max"]
+        cost_function = cost_dict["cost_function"]
+        
+        if abs(cost_max - cost_min) < 0.001:
+            return_val = self.fixed_cost_solve(arr, cost_min)
+            
+        elif cost_function == "linear":
+            return_val = self.linear_solve(arr, gen_min, gen_max, cost_min, cost_max)
+            
+        elif cost_function == "steep_cubic":
+            return_val = self.steep_cubic_solve(arr, gen_min, gen_max, cost_min, cost_max)
+        
+        elif cost_function == "inverse_s":
+            return_val = self.inverse_s_solve(arr, gen_min, gen_max, cost_min, cost_max)
+        
+        else:
+            assert False, "cost function should be linear, steep_cubic or inverse_s"
+        
+        return return_val
+    
+    def fixed_cost_solve(self, arr, cost):
+        return np.full_like(arr, cost, dtype=float)
+
+    def linear_solve(self, arr, gen_min, gen_max, cost_min, cost_max):
+        return (arr - gen_min)/(gen_max-gen_min)*(cost_max-cost_min)+ cost_min
+    
+    def steep_cubic_solve(self, arr, gen_min, gen_max, cost_min, cost_max):
+        dxdy_at_gen_min = 0
+        dxdy_at_gen_max = 0.35
+        
+        
+        A = [[gen_min**0, gen_min**1,   gen_min**2,     gen_min**3], 
+             [0,          1*gen_min**0, 2*gen_min**1,   3*gen_min**2], 
+             [gen_max**0, gen_max**1,   gen_max**2,     gen_max**3],
+             [0,          1*gen_max**0, 2*gen_max**1,   3*gen_max**2]]
+        
+        b = [[cost_min],
+             [dxdy_at_gen_min],
+             [cost_max],
+             [dxdy_at_gen_max]]
+        
+        C = solve(A, b)
+        
+        return C[0][0] * arr**0 + C[1][0] * arr**1 + C[2][0] * arr**2 + C[3][0] * arr**3
+    
+    def inverse_s_solve(self, arr, gen_min, gen_max, cost_min, cost_max):
+        dxdy_at_gen_min = 0.3
+        dxdy_at_gen_max = 0.3
+        
+        
+        A = [[gen_min**0, gen_min**1,   gen_min**2,     gen_min**3], 
+             [0,          1*gen_min**0, 2*gen_min**1,   3*gen_min**2], 
+             [gen_max**0, gen_max**1,   gen_max**2,     gen_max**3],
+             [0,          1*gen_max**0, 2*gen_max**1,   3*gen_max**2]]
+        
+        b = [[cost_min],
+             [dxdy_at_gen_min],
+             [cost_max],
+             [dxdy_at_gen_max]]
+         
+        C = solve(A, b)
+        
+        return C[0][0] * arr**0 + C[1][0] * arr**1 + C[2][0] * arr**2 + C[3][0] * arr**3       
