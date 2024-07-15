@@ -52,14 +52,14 @@ class control_strategy_TE(typeA_control):
         
         self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
         
-        forecasted_cost_data = self.controller.cost_forecaster.get_forecasted_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
-        actual_cost_data = self.controller.cost_forecaster.get_actual_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
+        #forecasted_cost_data = self.controller.cost_forecaster.get_forecasted_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
+        #actual_cost_data = self.controller.cost_forecaster.get_actual_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
         
-        cost_df = pd.DataFrame()
-        cost_df["time | hrs"] = np.arange(self.start_simulation_unix_time/3600.0, self.end_simulation_unix_time/3600.0, forecasted_cost_data.data_timestep_sec/3600.0)
-        cost_df["forecasted_cost | usd_per_kWh"] = forecasted_cost_data.data
-        cost_df["actual_cost | usd_per_kWh"] = actual_cost_data.data
-        cost_df.to_csv(os.path.join(self.io_dir.outputs_dir, "cost_profile.csv"), index = False)
+        #cost_df = pd.DataFrame()
+        #cost_df["time | hrs"] = np.arange(self.start_simulation_unix_time/3600.0, self.end_simulation_unix_time/3600.0, forecasted_cost_data.data_timestep_sec/3600.0)
+        #cost_df["forecasted_cost | usd_per_kWh"] = forecasted_cost_data.data
+        #cost_df["actual_cost | usd_per_kWh"] = actual_cost_data.data
+        #cost_df.to_csv(os.path.join(self.io_dir.outputs_dir, "cost_profile.csv"), index = False)
 
         # keeps track of charge events that are handed over to charge controller
         self.processed_charge_events = []
@@ -104,10 +104,11 @@ class control_strategy_TE(typeA_control):
         print("Control Strategy forecasted_cost : ", forecasted_cost)
         print("Control Strategy actual_cost : ", actual_cost)
         
-        tolerance = 0.05        # 5 percent
+        tolerance = 0.10        # 10 percent
         cost_deviated_from_forecast = ((actual_cost - forecasted_cost) / forecasted_cost > tolerance)        
         print("Control Strategy cost_deviated_from_forecast : ", cost_deviated_from_forecast)
         
+        print(Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS].keys())
         CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS][self.cs_id]
 
         active_SEs = []
@@ -174,7 +175,7 @@ class charge_controller:
         self.debug_plot = False
         self.plots = set()
         self.input_folder = io_dir.inputs_dir
-        self.figures_folder = os.path.join(io_dir.outputs_dir, "figures")
+        self.figures_folder = io_dir.figures_dir
         
         self.forecast_duration_sec = 12*3600            # Max forecast of 12 hours
         self.controller_starttime_sec = starttime_sec   
@@ -188,7 +189,7 @@ class charge_controller:
         self.charge_profiles = CP_interface_v2(self.input_folder)
         
         if self.use_cost_forecaster_v3:
-            self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.input_folder, "TE_inputs"))
+            self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.input_folder, "TE_inputs"), self.figures_folder, self.plot)
         else:
             
             forecast_file = os.path.join(self.input_folder, "TE_inputs", "forecast.csv")
@@ -781,7 +782,7 @@ class TE_cost_forecaster_v3():
     def __init__(
             self, input_folder: str, figures_folder: str, plot: bool) -> None:
         
-        loader = load_demand_gen_files("TE_inputs")                             # loader object
+        loader = load_demand_gen_files(input_folder)                            # loader object
         (self.dem_dict, self.gen_dict, self.cost_dict) = loader.load()          # loads all input file
         
         self.solver = cost_solver(self.cost_dict)
@@ -801,22 +802,22 @@ class TE_cost_forecaster_v3():
             .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
         
         # Ensure self.forecast_time_step_sec is a multiple of req_time_step_sec
-        assert abs(math.fmod(self.actual_ts_s, req_time_step_sec)) < 0.001, \
+        assert abs(fmod(self.actual_ts_s, req_time_step_sec)) < 0.001, \
             "requested time range ({}, {}) hrs is beyond forecast duration of {} hrs"\
             .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
         
         # Ensure start_time_sec is a perfect multiple of req_time_step_sec
-        assert abs(math.fmod(start_time_sec, req_time_step_sec)) < 0.001 , \
+        assert abs(fmod(start_time_sec, req_time_step_sec)) < 0.001 , \
             "start_time_sec: {} should be a multiple of actual_ts_s: {}"\
             .format(start_time_sec, self.actual_ts_s)
         
         # Ensure end_time_sec is a perfect multiple of time_range
-        assert abs(math.fmod(end_time_sec, req_time_step_sec)) < 0.001 , \
+        assert abs(fmod(end_time_sec, req_time_step_sec)) < 0.001 , \
             "end_time_sec: {} should be a multiple of req_time_step_sec: {}"\
             .format(end_time_sec, req_time_step_sec)
         
         # Ensure time_step is a perfect multiple of time_range
-        assert abs(math.fmod(end_time_sec - start_time_sec, req_time_step_sec)) < 0.001 , \
+        assert abs(fmod(end_time_sec - start_time_sec, req_time_step_sec)) < 0.001 , \
             "requested time_range_sec: {} should be a multiple of req_time_step_sec: {}"\
             .format(end_time_sec - start_time_sec, req_time_step_sec)
     
@@ -855,13 +856,19 @@ class TE_cost_forecaster_v3():
         
         assert column_id is not None, "column_id is None, that should not happen"
         
+
         df = data_dict[column_id]
         df_time = cur_time_sec - (cur_time_sec % column_ts)
-        
+
         start =  df["{}_time".format(column_id)].iloc[0]
         end = df["{}_time".format(column_id)].iloc[-1]
         
-        assert df_time >= start and df_time < end, \
+        #print("column_id:", column_id)
+        #print("df_time:", df_time/3600.0)
+        #print("start:", start/3600.0)
+        #print("end:", end/3600.0)
+        
+        assert df_time >= start and df_time <= end, \
             "time not in the dataframe"
         
         return [float(df[df["{}_time".format(column_id)] == df_time][column_id])]
@@ -879,7 +886,7 @@ class TE_cost_forecaster_v3():
         else:
             assert False, "data_id: {} is not present in demand data nor generation data"
         
-        data = np.zeros(int((end_time_sec - start_time_sec) / self.forecast_ts_s))
+        final_data = np.zeros(int((end_time_sec - start_time_sec) / req_time_step_sec))
         
         # switch key and values in forecast_metadata_dict so that we can iterate through release_time
         rel_t_to_frcst_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
@@ -900,18 +907,18 @@ class TE_cost_forecaster_v3():
                 
                 if (overlap_start < overlap_end):
                     df = data_dict[forecast_id]
-                    forecast_arr = df[ (df["{}_time".format(forecast_id)] >= overlap_start) & (df["{}_time".format(forecast_id)] < overlap_end) ][forecast_id]
                     
-                    forecast_idx = np.arange(int((overlap_start-start_time_sec)/self.forecast_ts_s), int((overlap_end-start_time_sec)/self.forecast_ts_s))
-                    np.put(data, forecast_idx, forecast_arr)
+                    forecast_arr = []
+                    for time in np.arange(overlap_start, overlap_end, req_time_step_sec):
+                        time_in_df_timestep = time - (time%self.forecast_ts_s)
+                        forecast_arr.append(float(df[df["{}_time".format(forecast_id)] == time_in_df_timestep][forecast_id]))
+                     
+                    forecast_arr = np.array(forecast_arr)
+                    forecast_idx = np.arange(int((overlap_start-start_time_sec)/req_time_step_sec), int((overlap_end-start_time_sec)/req_time_step_sec))
+                    np.put(final_data, forecast_idx, forecast_arr)
             else:
                 break
-                
         
-        # convert timestep to req_time_step_sec
-        multiple = self.forecast_ts_s/req_time_step_sec
-        final_data = np.repeat(data, multiple)
-
         return final_data
         
     def get_data_for_time_range(
@@ -953,7 +960,7 @@ class TE_cost_forecaster_v3():
         cost_usd_per_MWh = total_cost_usd/total_MWh_per_timestep
         cost_usd_per_kWh = cost_usd_per_MWh/1000.0
         
-        return cost_usd_per_kWh
+        return timeseries(start_time_sec, req_time_step_sec, cost_usd_per_kWh)
     
     def get_cost_at_time_sec(self, cost_type:str, time_sec:float):
         req_time_step_sec = 0.25 * 3600
@@ -961,6 +968,7 @@ class TE_cost_forecaster_v3():
         dem_data = pd.DataFrame()
         gen_data = pd.DataFrame()
 
+        print(cost_type, time_sec)
         dem_data["demand"] = self.get_data_for_time_sec("demand", cost_type, time_sec)
         gen_data["nuclear"] = self.get_data_for_time_sec("nuclear", cost_type, time_sec)
         gen_data["solar"] = self.get_data_for_time_sec("solar", cost_type, time_sec)
@@ -994,6 +1002,7 @@ class load_demand_gen_files():
     
     def __init__(self, input_folder : str) -> None:
         
+        self.input_folder = input_folder
         self.file_extension = ".csv"
         self.demand_files = ["demand"]
         self.generation_files = ["nuclear", "solar", "wind", "fossil_fuel"]
@@ -1005,10 +1014,12 @@ class load_demand_gen_files():
         generation_dict = {}
         
         for file in self.demand_files:                                          # load demand files
-             demand_dict[file] = self.load_file(file + self.file_extension)
+             demand_dict[file] = self.load_file(
+                 os.path.join(self.input_folder, file + self.file_extension))
            
         for file in self.generation_files:                                      # load generation files
-             generation_dict[file] = self.load_file(file + self.file_extension)
+             generation_dict[file] = self.load_file(
+                 os.path.join(self.input_folder, file + self.file_extension))
         
         #self.perform_multifile_error_checks()
         
@@ -1022,8 +1033,6 @@ class load_demand_gen_files():
             local_cost_dict["cost_max"] = metadata_dict["cost_max"]
             local_cost_dict["cost_function"] = metadata_dict["cost_function"]
             cost_dict[gen_type] = local_cost_dict
-        
-        
         
         return (demand_dict, generation_dict, cost_dict)
     
