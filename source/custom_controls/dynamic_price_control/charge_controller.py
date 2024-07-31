@@ -6,6 +6,8 @@ from Caldera_ICM_Aux import CP_interface_v2
 from dynamic_price_control.cost_forecaster import TE_cost_forecaster_v2, TE_cost_forecaster_v3
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 class charge_controller:
     '''
     Description:

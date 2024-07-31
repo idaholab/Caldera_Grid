@@ -153,7 +153,8 @@ class control_strategy_TE(typeA_control):
         print("{}: num events solved".format(num_events))
         time_taken = time.time() - start
         print("{}: solve".format(time_taken))
-        print("{}: avg time per event".format(time_taken/num_events))
+        if num_events > 0:
+            print("{}: avg time per event".format(time_taken/num_events))
         
         #-----------------------------
             
