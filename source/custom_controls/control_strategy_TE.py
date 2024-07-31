@@ -1,20 +1,11 @@
-
-from math import floor, ceil, fmod
+from global_aux import Caldera_message_types, input_datasets, container_class
+from control_templates import typeA_control
 
 from dynamic_price_control.charge_controller import charge_controller
 
-from Caldera_globals import L2_control_strategies_enum, SE_setpoint, timeseries, active_CE
-from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
-from control_templates import typeA_control
+import time
 
-from Caldera_ICM_Aux import CP_interface_v2
-import os 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import json
-
-from scipy.linalg import solve
+from multiprocessing import Pool
 
 class control_strategy_TE(typeA_control):
     
@@ -92,15 +83,20 @@ class control_strategy_TE(typeA_control):
         # current_simulation_unix_time refers to when the next control action would start. i.e. begining of next control timestep 
         # and end of current control timestep
 
+
         next_control_starttime_sec = current_simulation_unix_time
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
 
+        self.controller.precompute_costs_for_time(next_control_starttime_sec)
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
         #----------------------------------------------------------
         
+        start = time.time()
         forecasted_cost = self.controller.get_forecasted_cost_at_time_sec(next_control_starttime_sec)
         actual_cost = self.controller.get_actual_cost_at_time_sec(next_control_starttime_sec)
+        
+        print("{}: get costs".format(time.time() - start))
         
         #print("Control Strategy forecasted_cost : ", forecasted_cost)
         #print("Control Strategy actual_cost : ", actual_cost)
@@ -112,6 +108,14 @@ class control_strategy_TE(typeA_control):
         CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS][self.cs_id]
 
         active_SEs = []
+        
+        
+        num_added_events = 0
+        start = time.time()
+        
+        #with Pool() as p:
+        #    p.map(sub_solve, CEs_all)
+
         for CE in CEs_all:
             
             # get the charge_event id
@@ -132,11 +136,25 @@ class control_strategy_TE(typeA_control):
                 # process this charge event only if it is not already processed
                 if charge_event_id not in self.processed_charge_events:
                     
+                    num_added_events += 1
+
                     #print("adding new charge event: ", charge_event_id)
                     self.processed_charge_events.append(charge_event_id)                
                     # Add charge event to charge controller
                     self.controller.add_active_charge_event(next_control_starttime_sec, CE)
-            
+        
+        if(cost_deviated_from_forecast):
+            print("recalculating")
+            num_events = len(CEs_all)
+        else:
+            print("adding")
+            num_events = num_added_events
+
+        print("{}: num events solved".format(num_events))
+        time_taken = time.time() - start
+        print("{}: solve".format(time_taken))
+        print("{}: avg time per event".format(time_taken/num_events))
+        
         #-----------------------------
             
         Caldera_control_info_dict = {}

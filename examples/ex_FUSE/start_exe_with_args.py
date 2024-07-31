@@ -7,10 +7,10 @@ import glob
 path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 folders = []
-folders.extend(glob.glob(os.path.join(path_to_here,"inputs/home/")))
+#folders.extend(glob.glob(os.path.join(path_to_here,"inputs/home/")))
 folders.extend(glob.glob(os.path.join(path_to_here,"inputs/work/")))
-folders.extend(glob.glob(os.path.join(path_to_here,"inputs/home_uncontrolled/")))
-folders.extend(glob.glob(os.path.join(path_to_here,"inputs/work_uncontrolled/")))
+#folders.extend(glob.glob(os.path.join(path_to_here,"inputs/home_uncontrolled/")))
+#folders.extend(glob.glob(os.path.join(path_to_here,"inputs/work_uncontrolled/")))
 
 for input_folder in folders:
     print("folder: ",input_folder)
@@ -21,8 +21,8 @@ for input_folder in folders:
     output_directory = input_folder.replace("inputs", "outputs")
     figures_directory = os.path.join( path_to_here, "figures/" )
     timestep = 1*60
-    starttime = (168+12)*3600
-    endtime = (240-12)*3600
+    starttime = (198)*3600
+    endtime = (200)*3600
     command = [
         "python", os.path.join( path_to_here, "./start_execution.py" ),
         "-libs", path_to_libs,

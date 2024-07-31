@@ -65,6 +65,14 @@ class charge_controller:
     #    df["time"] = time_arr/3600.0
     #    df["SE_100239126"] = self.controller_2Darr[self.SE_id_to_controller_index_map[100239126], :].astype(int)
     #    df.to_csv(os.path.join(self.input_folder, "controller_state.csv"), index = False)
+
+    def precompute_costs_for_time(self, time_sec):
+        
+        current_time = time_sec
+        start_time = time_sec
+        end_time = time_sec + self.forecast_duration_sec
+        timestep = self.controller_timestep_sec
+        self.precomputed_cost_profile = self.cost_forecaster.get_cost_for_time_range(current_time, start_time, end_time,  timestep)
         
     def get_forecasted_cost_at_time_sec(self, time_sec : float) -> float:
         '''
@@ -148,7 +156,10 @@ class charge_controller:
         #-------------------------------------------
         
         if self.use_cost_forecaster_v3:
-            cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, start_time_sec, end_time_sec, self.controller_timestep_sec)
+            #cost_profile = self.cost_forecaster.get_cost_for_time_range(next_control_starttime_sec, start_time_sec, end_time_sec, self.controller_timestep_sec)
+            start_idx = int((start_time_sec - next_control_starttime_sec) / self.controller_timestep_sec)
+            end_idx = int((end_time_sec - next_control_starttime_sec)/ self.controller_timestep_sec)
+            cost_profile = timeseries(start_time_sec, self.controller_timestep_sec, self.precomputed_cost_profile.data[start_idx:end_idx])
         else:
             cost_profile = self.cost_forecaster.get_cost_for_time_range(start_time_sec, end_time_sec, self.controller_timestep_sec)
         
@@ -166,10 +177,15 @@ class charge_controller:
         #       Update controller_2Darr 
         #-------------------------------------------
         
-        for cost_profile_index in cost_profile_indeces_cheapest:
-            profile_time_sec = cost_profile.get_time_from_index_sec(cost_profile_index)
-            control_time_index = self.get_time_idx_from_time_sec(profile_time_sec)          
-            self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = True
+        # Get time of cost profile idx
+        # Get time idx from time
+        control_time_indices = [self.get_time_idx_from_time_sec(cost_profile.get_time_from_index_sec(cost_profile_index)) for cost_profile_index in cost_profile_indeces_cheapest]
+        self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_indices] = True
+        
+        #for cost_profile_index in cost_profile_indeces_cheapest:
+        #    profile_time_sec = cost_profile.get_time_from_index_sec(cost_profile_index)
+        #    control_time_index = self.get_time_idx_from_time_sec(profile_time_sec)          
+        #    self.controller_2Darr[self.SE_id_to_controller_index_map[SE_id], control_time_index] = True
         
         if self.debug_plot == True:
             
