@@ -10,6 +10,8 @@ import json
 
 from math import fmod
 
+from scipy.interpolate import CubicSpline
+
 class TE_cost_forecaster_v2():
     '''
     Description:
@@ -488,12 +490,22 @@ class TE_cost_forecaster_v3():
                 if (overlap_start < overlap_end):
                     df = data_dict[forecast_id]
                     
-                    forecast_arr = []
-                    for time in np.arange(overlap_start, overlap_end, req_time_step_sec):
-                        time_in_df_timestep = time - (time%self.forecast_ts_s)
-                        forecast_arr.append(float(df[df["{}_time".format(forecast_id)] == time_in_df_timestep][forecast_id]))
+                    overlap_start_floor = overlap_start - (overlap_start % self.forecast_ts_s)
+                    overlap_end_ceil = overlap_end + (self.forecast_ts_s - (overlap_end % self.forecast_ts_s))
+                    
+                    # linear interpolation
+                    #forecast_arr = np.interp(np.arange(overlap_start, overlap_end, req_time_step_sec), df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
+
+                    # cubic spline interpolation
+                    spl = CubicSpline(df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
+                    forecast_arr = spl(np.arange(overlap_start, overlap_end, req_time_step_sec))
+
+                    #for time in np.arange(overlap_start, overlap_end, req_time_step_sec):
+                    #    time_in_df_timestep = time - (time%self.forecast_ts_s)
+                    #    forecast_arr.append(float(df[df["{}_time".format(forecast_id)] == time_in_df_timestep][forecast_id]))
                      
-                    forecast_arr = np.array(forecast_arr)
+                    #forecast_arr = np.array(forecast_arr)
+                    
                     forecast_idx = np.arange(int((overlap_start-start_time_sec)/req_time_step_sec), int((overlap_end-start_time_sec)/req_time_step_sec))
                     np.put(final_data, forecast_idx, forecast_arr)
             else:
