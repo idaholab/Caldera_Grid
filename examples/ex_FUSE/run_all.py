@@ -39,10 +39,14 @@ scenarios.append("work_dynamic")
 
 path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
+sim_start_sec = 168*3600
+sim_end_sec = 288*3600
+sim_step_sec = 1*60
+
 input_path = os.path.join(path_to_here, "inputs")
 output_path = os.path.join(path_to_here, "outputs")
 
-n_samples = 1000
+n_samples = 100
 
 if len(sys.argv) < 2:
     print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
@@ -113,7 +117,23 @@ for scenario_name in scenarios:
     
     sub_SE_df.to_csv(os.path.join(input_folder, "SE_{}.csv".format(scenario_name)), index = False)
 
+#-------------------------------
+#      Update baseLD input file
+#-------------------------------
 
+data = "data_start_time_unix_time,{}\n".format(sim_start_sec)
+data += "time_step_sec,{}\n".format(sim_step_sec)
+data += "actual_non_pev_net_load_akW,forecasted_non_pev_net_load_akW\n"
+for i in range(sim_start_sec, sim_end_sec, sim_step_sec):
+    data += "{},{}\n".format(1000, 1000)    
+
+for scenario_name in scenarios:
+
+    input_folder = os.path.join(input_path, scenario_name)
+    file = open(os.path.join(input_folder, "baseLD_.csv"), "w")
+    file.write(data)
+    file.close()
+    
 #-------------------------------
 #      Setup output folders
 #-------------------------------
@@ -124,6 +144,9 @@ for folder in scenarios:
     output_folder = os.path.join(output_path, folder)
     reset_dir(output_folder)        # reset also creates empty dir
 
+#-------------------------------
+#      Kickoff sims
+#-------------------------------
 
 for sim in scenarios:
 
@@ -132,5 +155,5 @@ for sim in scenarios:
         print("job {} submitted".format(sim))
     
     if sim_env == "local":
-        subprocess.call("python start_exe_with_args.py \"{}\" ".format(sim), shell = True)
+        subprocess.call("python start_exe_with_args.py \"{}\" {} {} {}".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
         time.sleep(5)
