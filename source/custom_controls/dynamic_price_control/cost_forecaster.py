@@ -453,7 +453,7 @@ class TE_cost_forecaster_v3():
         assert df_time >= start and df_time <= end, \
             "time not in the dataframe"
         
-        return [float(df[df["{}_time".format(column_id)] == df_time][column_id])]
+        return [float(df[df["{}_time".format(column_id)] == df_time][column_id].iloc[0])]
     
     def get_forecast_data_for_time_range(
             self, data_id: str, cur_time_sec: float, start_time_sec: float, 
@@ -494,11 +494,11 @@ class TE_cost_forecaster_v3():
                     overlap_end_ceil = overlap_end + (self.forecast_ts_s - (overlap_end % self.forecast_ts_s))
                     
                     # linear interpolation
-                    #forecast_arr = np.interp(np.arange(overlap_start, overlap_end, req_time_step_sec), df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
+                    forecast_arr = np.interp(np.arange(overlap_start, overlap_end, req_time_step_sec), df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
 
                     # cubic spline interpolation
-                    spl = CubicSpline(df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
-                    forecast_arr = spl(np.arange(overlap_start, overlap_end, req_time_step_sec))
+                    #spl = CubicSpline(df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
+                    #forecast_arr = spl(np.arange(overlap_start, overlap_end, req_time_step_sec))
 
                     #for time in np.arange(overlap_start, overlap_end, req_time_step_sec):
                     #    time_in_df_timestep = time - (time%self.forecast_ts_s)
