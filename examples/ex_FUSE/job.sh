@@ -13,6 +13,10 @@ module load apptainer/1.2.2
 
 cd $PBS_O_WORKDIR
 
-echo $folder
+echo "simulation folder: ${folder}"
+echo "simulation start: ${sim_start}"
+echo "simulation end: ${sim_end}"
+echo "simulation step: ${sim_step}"
 
-singularity exec /projects/Caldera/Singularity_Image/SingularityEnv_2023_09_13/FUSE_environment.simg python start_exe_with_args_HPC.py $folder
+
+singularity exec /projects/Caldera/Singularity_Image/SingularityEnv_2024_06_06/FUSE_environment.simg python start_exe_with_args.py $folder $sim_start $sim_end $sim_step

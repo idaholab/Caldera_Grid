@@ -151,7 +151,7 @@ for folder in scenarios:
 for sim in scenarios:
 
     if sim_env == "HPC":
-        subprocess.call("qsub -v folder=\"{}\" job.sh".format(sim), shell = True)
+        subprocess.call("qsub -v folder=\"{}\" -v sim_start={} -v sim_end= {} -v sim_step={} job.sh".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
         print("job {} submitted".format(sim))
     
     if sim_env == "local":
