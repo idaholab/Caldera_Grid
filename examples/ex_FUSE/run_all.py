@@ -46,7 +46,7 @@ sim_step_sec = 1*60
 input_path = os.path.join(path_to_here, "inputs")
 output_path = os.path.join(path_to_here, "outputs")
 
-n_samples = 100
+n_samples = 100000
 
 if len(sys.argv) < 2:
     print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
@@ -151,7 +151,7 @@ for folder in scenarios:
 for sim in scenarios:
 
     if sim_env == "HPC":
-        subprocess.call("qsub -v folder=\"{}\" -v sim_start={} -v sim_end= {} -v sim_step={} job.sh".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
+        subprocess.call("qsub -v \'folder=\"{}\", sim_start={}, sim_end={}, sim_step={}\' job.sh".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
         print("job {} submitted".format(sim))
     
     if sim_env == "local":

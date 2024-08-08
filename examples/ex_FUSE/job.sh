@@ -19,4 +19,5 @@ echo "simulation end: ${sim_end}"
 echo "simulation step: ${sim_step}"
 
 
-singularity exec /projects/Caldera/Singularity_Image/SingularityEnv_2024_06_06/FUSE_environment.simg python start_exe_with_args.py $folder $sim_start $sim_end $sim_step
+#singularity exec /projects/Caldera/Singularity_Image/SingularityEnv_2024_06_06/FUSE_environment_2024_06_06.simg python start_exe_with_args.py $folder $sim_start $sim_end $sim_step
+singularity exec /projects/Caldera/Singularity_Image/SingularityEnv_2023_10_18/FUSE_environment_2023_10_18.simg python start_exe_with_args.py $folder $sim_start $sim_end $sim_step
