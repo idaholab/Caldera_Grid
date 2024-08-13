@@ -6,6 +6,8 @@ import pandas as pd
 import shutil
 import random
 
+debug = False
+
 #-------------------------------------
 
 MIN_PYTHON = (3, 8)
@@ -28,10 +30,11 @@ def reset_dir(dir_path : str):
 #-------------------------------
 
 scenarios = []
-scenarios.append("home_uncontrolled")
-scenarios.append("work_uncontrolled")
-scenarios.append("home_dynamic")
-scenarios.append("work_dynamic")
+#scenarios.append("home_uncontrolled")
+#scenarios.append("work_uncontrolled")
+for i in range(0, 101, 20):
+    scenarios.append("home_dynamic_{}".format(i))
+    scenarios.append("work_dynamic_{}".format(i))
 
 #-------------------------------
 #      Inputs
@@ -48,15 +51,20 @@ output_path = os.path.join(path_to_here, "outputs")
 
 n_samples = 100000
 
-if len(sys.argv) < 2:
-    print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
-    exit()
+if debug == False:
+    if len(sys.argv) < 2:
+        print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
+        exit()
+    
+    if sys.argv[1] != "HPC" and sys.argv[1] != "local":
+        print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
+        exit()
 
-if sys.argv[1] != "HPC" and sys.argv[1] != "local":
-    print("Error: The script run_all.py takes 1 argument, and it should be local or HPC depending on the environment being run")
-    exit()
+    sim_env = sys.argv[1]
 
-sim_env = sys.argv[1]
+else:
+    print("running in debug mode")
+    sim_env = "local"
 
 #-------------------------------
 #      Setup input folders
@@ -84,6 +92,8 @@ for scenario_name in scenarios:
     
     input_folder = os.path.join(input_path, scenario_name)
     
+    percent_of_control = int(scenario_name.split("_")[-1])
+
     if "home" in scenario_name:
         range_min = 100000000
         range_max = 200000000
@@ -96,6 +106,21 @@ for scenario_name in scenarios:
     sub_CE_df = CE_df[(CE_df["charge_event_id"] >= range_min)  & (CE_df["charge_event_id"] < range_max)]
     sub_CE_df = sub_CE_df.sample(n=n_samples)
     
+    sub_CE_df["ES_strategy"] = "NA"
+    sub_CE_df["VS_strategy"] = "NA"
+    sub_CE_df["Ext_strategy"] = "NA"
+    
+    sub_CE_control_df = sub_CE_df.sample(n = int(n_samples*percent_of_control/100))
+    
+    sub_CE_df.loc[sub_CE_control_df.index, "Ext_strategy"] = "ext0001"
+
+    sub_CE_df.to_csv(os.path.join(input_folder, "CE_{}.csv".format(scenario_name)), index = False)
+    
+    sub_SE_df = SE_df[SE_df["SE_id"].isin(sub_CE_df["SE_id"])]
+    
+    sub_SE_df.to_csv(os.path.join(input_folder, "SE_{}.csv".format(scenario_name)), index = False)
+
+'''
     if "uncontrolled" in scenario_name:
 
         sub_CE_df["ES_strategy"] = "NA"
@@ -110,12 +135,8 @@ for scenario_name in scenarios:
 
     else:
         raise ValueError('scenario name should have uncontrolled or dynamic in it.')   
-        
-    sub_CE_df.to_csv(os.path.join(input_folder, "CE_{}.csv".format(scenario_name)), index = False)
-    
-    sub_SE_df = SE_df[SE_df["SE_id"].isin(sub_CE_df["SE_id"])]
-    
-    sub_SE_df.to_csv(os.path.join(input_folder, "SE_{}.csv".format(scenario_name)), index = False)
+'''
+
 
 #-------------------------------
 #      Update baseLD input file
@@ -148,12 +169,13 @@ for folder in scenarios:
 #      Kickoff sims
 #-------------------------------
 
-for sim in scenarios:
-
-    if sim_env == "HPC":
-        subprocess.call("qsub -v \'folder=\"{}\", sim_start={}, sim_end={}, sim_step={}\' job.sh".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
-        print("job {} submitted".format(sim))
+if debug == False:
+    for sim in scenarios:
     
-    if sim_env == "local":
-        subprocess.call("python start_exe_with_args.py \"{}\" {} {} {}".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
-        time.sleep(5)
+        if sim_env == "HPC":
+            subprocess.call("qsub -v \'folder=\"{}\", sim_start={}, sim_end={}, sim_step={}\' job.sh".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
+            print("job {} submitted".format(sim))
+        
+        if sim_env == "local":
+            subprocess.call("python start_exe_with_args.py \"{}\" {} {} {}".format(sim, sim_start_sec, sim_end_sec, sim_step_sec), shell = True)
+            time.sleep(5)
