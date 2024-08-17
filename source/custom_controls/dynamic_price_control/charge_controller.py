@@ -82,7 +82,7 @@ class charge_controller:
             Given a time return the forecasted cost at that time from cost forecaster.
         '''
         
-        return self.cost_forecaster.get_forecasted_cost_at_time_sec(time_sec)
+        return self.cost_forecaster.get_forecasted_cost_at_time_sec(time_sec, self.controller_timestep_sec)
     
     def get_actual_cost_at_time_sec(self, time_sec : float) -> float:
         '''
@@ -90,7 +90,7 @@ class charge_controller:
             Given a time return the actual cost at that time from cost forecaster.
         '''
 
-        return self.cost_forecaster.get_actual_cost_at_time_sec(time_sec)
+        return self.cost_forecaster.get_actual_cost_at_time_sec(time_sec, self.controller_timestep_sec)
     
     
     def get_time_idx_from_time_sec(self, time_sec : float) -> int:

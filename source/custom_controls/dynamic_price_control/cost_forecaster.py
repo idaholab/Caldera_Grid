@@ -407,57 +407,10 @@ class TE_cost_forecaster_v3():
         assert abs(fmod(end_time_sec - start_time_sec, req_time_step_sec)) < 0.001 , \
             "requested time_range_sec: {} should be a multiple of req_time_step_sec: {}"\
             .format(end_time_sec - start_time_sec, req_time_step_sec)
-    
-    def get_data_for_time_sec( self, data_id: str, data_type: str, cur_time_sec: float):
-        
-        if data_id in self.dem_dict:
-            (metadata_dict, frcst_metadata_dict, data_dict) = self.dem_dict[data_id]
-        elif data_id in self.gen_dict:
-            (metadata_dict, frcst_metadata_dict, data_dict) = self.gen_dict[data_id]
-        else:
-            assert False, "data_id: {} is not present in demand data nor generation data"
-        
-        if data_type == "actual":
-            column_id = "actual"
-            column_ts = self.actual_ts_s
-            
-        elif data_type == "forecast":
-            
-            column_id = None
-            column_ts = self.forecast_ts_s
-            
-            # switch key and values in forecast_metadata_dict so that we can iterate through release_time
-            rel_t_to_frcst_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
-            
-            # Start from 1st forecast until the forecast that's active during cur_time_sec
-            for (release_time_hrs, forecast_id) in rel_t_to_frcst_id_d.items():
-                if (release_time_hrs*3600 <= cur_time_sec):
-                    (frcst_rel_t_s, frcst_st_t_s, frcst_end_t_s, frcst_ts_s, frcst_of_s) = frcst_metadata_dict[forecast_id]
-                    
-                    if cur_time_sec >= frcst_st_t_s and cur_time_sec < frcst_end_t_s:
-                        column_id = forecast_id
-                else:
-                    break
-        else:
-            assert False, "Error, check here!!"
-        
-        assert column_id is not None, "column_id is None, that should not happen"
-        
-
-        df = data_dict[column_id]
-        df_time = cur_time_sec - (cur_time_sec % column_ts)
-
-        start =  df["{}_time".format(column_id)].iloc[0]
-        end = df["{}_time".format(column_id)].iloc[-1]
-        
-        assert df_time >= start and df_time <= end, \
-            "time not in the dataframe"
-        
-        return [float(df[df["{}_time".format(column_id)] == df_time][column_id].iloc[0])]
-    
-    def get_forecast_data_for_time_range(
-            self, data_id: str, cur_time_sec: float, start_time_sec: float, 
-            end_time_sec: float, req_time_step_sec: float):
+     
+    def get_data_for_time_range(
+            self, data_id: str, data_type: str, cur_time_sec: float,
+            start_time_sec: float, end_time_sec: float, req_time_step_sec: float):
         
         self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
         
@@ -467,65 +420,79 @@ class TE_cost_forecaster_v3():
             (metadata_dict, frcst_metadata_dict, data_dict) = self.gen_dict[data_id]
         else:
             assert False, "data_id: {} is not present in demand data nor generation data"
-        
+
         final_data = np.zeros(int((end_time_sec - start_time_sec) / req_time_step_sec))
         
-        # switch key and values in forecast_metadata_dict so that we can iterate through release_time
-        rel_t_to_frcst_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
-        
+        if data_type == "actual":
+            column_ts = self.actual_ts_s
+            rel_t_to_id_d = {0 : "actual"}
+            
+        elif data_type == "forecast":
+            column_ts = self.forecast_ts_s
+            # switch key and values in forecast_metadata_dict so that we can iterate through release_time
+            rel_t_to_id_d = {y[0]: x for x, y in frcst_metadata_dict.items()}
+            
         # Start from 1st forecast until the forecast that's active during cur_time_sec
-        for (release_time_hrs, forecast_id) in rel_t_to_frcst_id_d.items():
+        for (release_time_hrs, col_id) in rel_t_to_id_d.items():
             if (release_time_hrs*3600 <= cur_time_sec):
-                # frcst_rel_t_s = Forecast Release Time Sec
-                # frcst_st_t_s = Forecast Start Time Sec
-                # frcst_end_t_s = Forecast End Time Sec
-                # frcst_ts_s = Forecast Time Step Sec
-                # frcst_of = Forecast Offset Sec
-                (frcst_rel_t_s, frcst_st_t_s, frcst_end_t_s, frcst_ts_s, frcst_of_s) = frcst_metadata_dict[forecast_id]
-                
+
+                if col_id in frcst_metadata_dict:
+                    # rel_t_s = Release Time Sec
+                    # st_t_s = Start Time Sec
+                    # end_t_s = End Time Sec
+                    # ts_s = Time Step Sec
+                    # of_s = Offset Sec
+                    (rel_t_s, st_t_s, end_t_s, ts_s, of_s) = frcst_metadata_dict[col_id]
+                else:
+                    time_arr = data_dict[col_id]["{}_time".format(col_id)].to_numpy()
+                    rel_t_s = time_arr[0]
+                    st_t_s = time_arr[0]
+                    ts_s = time_arr[1] - time_arr[0]
+                    end_t_s = st_t_s + ts_s * len(time_arr)
+                    of_s = st_t_s - rel_t_s
+
                 # Check for overlap between forecast start end and requested start end
-                overlap_start = max(start_time_sec, frcst_st_t_s)
-                overlap_end = min(end_time_sec, frcst_end_t_s)
+                overlap_start = max(start_time_sec, st_t_s)
+                overlap_end = min(end_time_sec, end_t_s)
                 
                 if (overlap_start < overlap_end):
-                    df = data_dict[forecast_id]
+                    df = data_dict[col_id]
                     
-                    overlap_start_floor = overlap_start - (overlap_start % self.forecast_ts_s)
-                    overlap_end_ceil = overlap_end + (self.forecast_ts_s - (overlap_end % self.forecast_ts_s))
+                    overlap_start_floor = overlap_start - (overlap_start % column_ts)
+                    overlap_end_ceil = overlap_end + (column_ts - (overlap_end % column_ts))
                     
                     # linear interpolation
-                    forecast_arr = np.interp(np.arange(overlap_start, overlap_end, req_time_step_sec), df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
+                    arr = np.interp(np.arange(overlap_start, overlap_end, req_time_step_sec), df["{}_time".format(col_id)], df["{}".format(col_id)])
 
                     # cubic spline interpolation
-                    #spl = CubicSpline(df["{}_time".format(forecast_id)], df["{}".format(forecast_id)])
-                    #forecast_arr = spl(np.arange(overlap_start, overlap_end, req_time_step_sec))
+                    #spl = CubicSpline(df["{}_time".format(col_id)], df["{}".format(col_id)])
+                    #arr = spl(np.arange(overlap_start, overlap_end, req_time_step_sec))
 
                     #for time in np.arange(overlap_start, overlap_end, req_time_step_sec):
-                    #    time_in_df_timestep = time - (time%self.forecast_ts_s)
-                    #    forecast_arr.append(float(df[df["{}_time".format(forecast_id)] == time_in_df_timestep][forecast_id]))
+                    #    time_in_df_timestep = time - (time%column_ts)
+                    #    arr.append(float(df[df["{}_time".format(col_id)] == time_in_df_timestep][col_id]))
                      
-                    #forecast_arr = np.array(forecast_arr)
+                    #arr = np.array(arr)
                     
-                    forecast_idx = np.arange(int((overlap_start-start_time_sec)/req_time_step_sec), int((overlap_end-start_time_sec)/req_time_step_sec))
-                    np.put(final_data, forecast_idx, forecast_arr)
+                    idx = np.arange(int((overlap_start-start_time_sec)/req_time_step_sec), int((overlap_end-start_time_sec)/req_time_step_sec))
+                    np.put(final_data, idx, arr)
             else:
                 break
-        
+
         return final_data
-        
-    def get_data_for_time_range(
+    
+    def get_adjusted_data_for_time_range(
             self, data_id:float, cur_time_sec:float, start_time_sec: float, 
             end_time_sec: float, req_time_step_sec: float):
         
-        arr = self.get_forecast_data_for_time_range(data_id, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        arr = self.get_data_for_time_range(data_id, "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
         
         if cur_time_sec >= start_time_sec and cur_time_sec < end_time_sec:
-            
             idx = int((cur_time_sec-start_time_sec)/req_time_step_sec)
-            arr[idx] = self.get_data_for_time_sec(data_id, "actual", cur_time_sec)[0]
+            arr[idx] = self.get_data_for_time_range(data_id, "actual", cur_time_sec, start_time_sec, start_time_sec+req_time_step_sec , req_time_step_sec)[0]
         
         return arr
-        
+
     def get_cost_for_time_range(
             self, cur_time_sec:float, start_time_sec: float, 
             end_time_sec: float, req_time_step_sec: float):
@@ -534,10 +501,10 @@ class TE_cost_forecaster_v3():
         gen_data = pd.DataFrame()
         
         # get all known data
-        dem_data["demand"] = self.get_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["nuclear"] = self.get_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["solar"] = self.get_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["wind"] = self.get_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)        
+        dem_data["demand"] = self.get_adjusted_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["nuclear"] = self.get_adjusted_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["solar"] = self.get_adjusted_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        gen_data["wind"] = self.get_adjusted_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)        
         gen_data["fossil_fuel"] = dem_data["demand"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
         
         gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
@@ -554,16 +521,15 @@ class TE_cost_forecaster_v3():
         
         return timeseries(start_time_sec, req_time_step_sec, cost_usd_per_kWh)
     
-    def get_cost_at_time_sec(self, cost_type:str, time_sec:float):
-        req_time_step_sec = 0.25 * 3600
+    def get_cost_at_time_sec(self, cost_type: str, time_sec: float, req_time_step_sec: float):
         
         dem_data = pd.DataFrame()
         gen_data = pd.DataFrame()
 
-        dem_data["demand"] = self.get_data_for_time_sec("demand", cost_type, time_sec)
-        gen_data["nuclear"] = self.get_data_for_time_sec("nuclear", cost_type, time_sec)
-        gen_data["solar"] = self.get_data_for_time_sec("solar", cost_type, time_sec)
-        gen_data["wind"] = self.get_data_for_time_sec("wind", cost_type, time_sec)      
+        dem_data["demand"] = self.get_data_for_time_range("demand", cost_type, time_sec, time_sec, time_sec + req_time_step_sec, req_time_step_sec)
+        gen_data["nuclear"] = self.get_data_for_time_range("nuclear", cost_type, time_sec, time_sec, time_sec + req_time_step_sec, req_time_step_sec)
+        gen_data["solar"] = self.get_data_for_time_range("solar", cost_type, time_sec, time_sec, time_sec + req_time_step_sec, req_time_step_sec)
+        gen_data["wind"] = self.get_data_for_time_range("wind", cost_type, time_sec, time_sec, time_sec + req_time_step_sec, req_time_step_sec) 
             
         gen_data["fossil_fuel"] = dem_data["demand"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
         
@@ -581,10 +547,10 @@ class TE_cost_forecaster_v3():
         
         return cost_usd_per_kWh
         
-    def get_forecasted_cost_at_time_sec(self, time_sec:float):
+    def get_forecasted_cost_at_time_sec(self, time_sec: float, req_time_step_sec: float):
         
-        return self.get_cost_at_time_sec("forecast", time_sec)[0]
+        return self.get_cost_at_time_sec("forecast", time_sec, req_time_step_sec)[0]
     
-    def get_actual_cost_at_time_sec(self, time_sec:float):
+    def get_actual_cost_at_time_sec(self, time_sec: float, req_time_step_sec: float):
         
-        return self.get_cost_at_time_sec("actual", time_sec)[0]
+        return self.get_cost_at_time_sec("actual", time_sec, req_time_step_sec)[0]
