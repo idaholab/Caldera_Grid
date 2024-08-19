@@ -35,6 +35,8 @@ scenarios = []
 for i in range(0, 101, 20):
     scenarios.append("home_dynamic_{}".format(i))
     scenarios.append("work_dynamic_{}".format(i))
+    scenarios.append("home_TOU_{}".format(i))
+    scenarios.append("work_TOU_{}".format(i))
 
 #-------------------------------
 #      Inputs
@@ -112,7 +114,13 @@ for scenario_name in scenarios:
     
     sub_CE_control_df = sub_CE_df.sample(n = int(n_samples*percent_of_control/100))
     
+    if "dynamic" in scenario_name:
     sub_CE_df.loc[sub_CE_control_df.index, "Ext_strategy"] = "ext0001"
+    elif "TOU" in scenario_name:
+        if "home" in scenario_name:
+            sub_CE_df.loc[sub_CE_control_df.index, "ES_strategy"] = "ES100-A"
+        elif "work" in scenario_name:
+            sub_CE_df.loc[sub_CE_control_df.index, "ES_strategy"] = "ES100-B"
 
     sub_CE_df.to_csv(os.path.join(input_folder, "CE_{}.csv".format(scenario_name)), index = False)
     
