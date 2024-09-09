@@ -3,7 +3,6 @@ from Caldera_globals import timeseries
 from dynamic_price_control.load_control_inputs import load_demand_gen_files
 from dynamic_price_control.cost_solver import cost_solver
 
-#import modin.pandas as pd
 import pandas as pd
 import numpy as np
 import json
@@ -372,12 +371,28 @@ class TE_cost_forecaster_v3():
         loader = load_demand_gen_files(input_folder)                            # loader object
         (self.dem_dict, self.gen_dict, self.cost_dict) = loader.load()          # loads all input file
         
+        self.EV_demand_df = self.dem_dict["EV"][2]["forecast_00"]               # EV_demand_forecaster()
         self.solver = cost_solver(self.cost_dict)
         
         self.forecast_dur_s = 48*3600                                           # How long in the future can we forecast
         self.forecast_ts_s = 1*3600                                             # The timestep in which forecast data is available 
         self.actual_ts_s = 1*3600                                               # The timestep in which actual data is available
         self.actual_known_for_time = 0.25*3600
+    
+    
+    def adjust_EV_charging_demand(self, adjustment_num_EVs, start_time, forecast_dur):
+        
+        ajustment_kW = adjustment_num_EVs * (6.6 / 1000.0)                      # Assuming average of 6.6 kW
+        
+        ajustment_kW_in_demand_ts = np.repeat(ajustment_kW, 15)  # Hardcoding timesteps as 15 min and 1 min for now
+        
+        time_col = "forecast_00_time"
+        val_col = "forecast_00"
+        
+        mask1 = self.EV_demand_df[time_col] >= start_time
+        mask2 = self.EV_demand_df[time_col] < start_time + forecast_dur
+
+        self.EV_demand_df.loc[mask1 & mask2, val_col] += ajustment_kW_in_demand_ts
         
     def check_time_values(
             self, start_time_sec: float, end_time_sec: float, 
@@ -414,6 +429,25 @@ class TE_cost_forecaster_v3():
         
         self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
         
+        if data_id == "EV":
+            
+            mask1 = self.EV_demand_df["forecast_00_time"] >= start_time_sec
+            mask2 = self.EV_demand_df["forecast_00_time"] < end_time_sec
+            EV_demand = self.EV_demand_df.loc[ mask1 & mask2, "forecast_00"].to_numpy()
+            
+            # Assuming EV data TS is 1 min and 
+            # Control TS is 15 min
+            vals_to_aggregate = 15 
+
+            EV_demand = np.reshape(EV_demand, (-1, vals_to_aggregate))
+
+            # Calculate the average along the columns
+            averaged_EV_demand = np.mean(EV_demand, axis=1)
+
+            if (len(averaged_EV_demand) != (end_time_sec - start_time_sec) / req_time_step_sec):
+                print("ERROR: EV demand step and requested_step dont match")
+            return averaged_EV_demand
+
         if data_id in self.dem_dict:
             (metadata_dict, frcst_metadata_dict, data_dict) = self.dem_dict[data_id]
         elif data_id in self.gen_dict:
@@ -502,10 +536,11 @@ class TE_cost_forecaster_v3():
         
         # get all known data
         dem_data["demand"] = self.get_adjusted_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        dem_data["EV"] = self.get_adjusted_data_for_time_range("EV", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
         gen_data["nuclear"] = self.get_adjusted_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
         gen_data["solar"] = self.get_adjusted_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
         gen_data["wind"] = self.get_adjusted_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)        
-        gen_data["fossil_fuel"] = dem_data["demand"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
+        gen_data["fossil_fuel"] = dem_data["demand"] + dem_data["EV"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
         
         gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
         

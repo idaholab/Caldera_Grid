@@ -8,7 +8,7 @@ class load_demand_gen_files():
         
         self.input_folder = input_folder
         self.file_extension = ".csv"
-        self.demand_files = ["demand"]
+        self.demand_files = ["demand", "EV"]
         self.generation_files = ["nuclear", "solar", "wind", "fossil_fuel"]
         self.current_file_being_read = ""
         
@@ -246,14 +246,23 @@ class load_demand_gen_files():
                 assert column_name == forecast_id + "_time", \
                     "{}: column {} name should be {}"\
                         .format(self.current_file_being_read, i, forecast_id + "_time")
-                assert column_unit == "hrs", \
+                assert column_unit == "hrs" or column_unit == "sec", \
                     "{}: column {} unit should be {}"\
-                        .format(self.current_file_being_read, i, "hrs")
+                        .format(self.current_file_being_read, i, "hrs or sec")
+                
+                if column_unit == "sec":
+                    df_full["{} | {}".format(column_name, column_unit)] = df_full["{} | {}".format(column_name, column_unit)]/3600.0
+                    
+                    print("column adjusted for {} | {}. Max : {}".format(column_name, column_unit, df_full["{} | {}".format(column_name, column_unit)].max()))
     
             else:           # Value column
                 assert column_name == forecast_id, \
                     "{}: column {} name should be {}"\
                         .format(self.current_file_being_read, i, forecast_id)
-                assert column_unit == "MW", \
+                assert column_unit == "MW" or column_unit == "kW", \
                     "{}: column {} unit should be {}"\
-                        .format(self.current_file_being_read, i, "hrs")
+                        .format(self.current_file_being_read, i, "MW or kW")
+                        
+                if column_unit == "kW":
+                    df_full["{} | {}".format(column_name, column_unit)] = df_full["{} | {}".format(column_name, column_unit)]/1000.0
+                    print("column adjusted for {} | {}. Max : {}".format(column_name, column_unit, df_full["{} | {}".format(column_name, column_unit)].max()))

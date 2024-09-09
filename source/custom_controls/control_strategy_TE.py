@@ -2,8 +2,10 @@ from global_aux import Caldera_message_types, input_datasets, container_class
 from control_templates import typeA_control
 
 from dynamic_price_control.charge_controller import charge_controller
+from dynamic_price_control.cost_forecaster import TE_cost_forecaster_v2, TE_cost_forecaster_v3
 
 import time
+import os
 
 from multiprocessing import Pool
 
@@ -42,17 +44,32 @@ class control_strategy_TE(typeA_control):
         # All supply_equipments in the simulation
         SE_ids = list(self.datasets_dict[input_datasets.SEid_to_SE_type].keys())
         
-        self.controller = charge_controller(self.io_dir, self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec, SE_ids)
+        self.communication = True
+        self.use_cost_forecaster_v3 = True
+        self.plot = True
+        self.forecast_duration_sec = 12*3600
         
-        #forecasted_cost_data = self.controller.cost_forecaster.get_forecasted_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
-        #actual_cost_data = self.controller.cost_forecaster.get_actual_cost_for_time_range(self.start_simulation_unix_time, self.end_simulation_unix_time, self.control_timestep_sec)
+        charge_controller_input = container_class()
+        charge_controller_input.io_dir = self.io_dir
+        charge_controller_input.controller_starttime_sec = self.start_simulation_unix_time
+        charge_controller_input.controller_endtime_sec = self.end_simulation_unix_time
+        charge_controller_input.controller_timestep_sec = self.control_timestep_sec
+        charge_controller_input.SE_ids = SE_ids
+        charge_controller_input.communication = self.communication
         
-        #cost_df = pd.DataFrame()
-        #cost_df["time | hrs"] = np.arange(self.start_simulation_unix_time/3600.0, self.end_simulation_unix_time/3600.0, forecasted_cost_data.data_timestep_sec/3600.0)
-        #cost_df["forecasted_cost | usd_per_kWh"] = forecasted_cost_data.data
-        #cost_df["actual_cost | usd_per_kWh"] = actual_cost_data.data
-        #cost_df.to_csv(os.path.join(self.io_dir.outputs_dir, "cost_profile.csv"), index = False)
-
+        self.controller = charge_controller(charge_controller_input)
+        
+        if self.use_cost_forecaster_v3:
+            self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.io_dir.inputs_dir, "TE_inputs"), self.io_dir.figures_dir, self.plot)
+        else:
+            
+            forecast_file = os.path.join(self.io_dir.inputs_dir, "TE_inputs", "forecast.csv")
+            actual_file = os.path.join(self.io_dir.inputs_dir, "TE_inputs", "actual.csv")
+            cost_file = os.path.join(self.io_dir.inputs_dir, "TE_inputs", "generation_cost.json")
+        
+            # cost_forcaster contains the cost of energy
+            self.cost_forecaster = TE_cost_forecaster_v2(forecast_file, actual_file, cost_file, self.figures_folder, self.plot)
+        
         # keeps track of charge events that are handed over to charge controller
         self.processed_charge_events = []
         #-------------------------------------
@@ -83,73 +100,47 @@ class control_strategy_TE(typeA_control):
         # current_simulation_unix_time refers to when the next control action would start. i.e. begining of next control timestep 
         # and end of current control timestep
 
-
         next_control_starttime_sec = current_simulation_unix_time
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
 
-        self.controller.precompute_costs_for_time(next_control_starttime_sec)
+        forecasted_cost_arr = self.cost_forecaster.get_cost_for_time_range(
+            next_control_starttime_sec, next_control_starttime_sec, next_control_starttime_sec + self.forecast_duration_sec, self.control_timestep_sec)
+
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
         #----------------------------------------------------------
         
         start = time.time()
-        forecasted_cost = self.controller.get_forecasted_cost_at_time_sec(next_control_starttime_sec)
-        actual_cost = self.controller.get_actual_cost_at_time_sec(next_control_starttime_sec)
-        
-        print("{}: get costs".format(time.time() - start))
-        
-        #print("Control Strategy forecasted_cost : ", forecasted_cost)
-        #print("Control Strategy actual_cost : ", actual_cost)
-        
-        tolerance = 0.10        # 10 percent
-        cost_deviated_from_forecast = ((actual_cost - forecasted_cost) / forecasted_cost > tolerance)        
-        print("Control Strategy cost_deviated_from_forecast : ", cost_deviated_from_forecast)
-        
+                
         CEs_all = Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_extCS][self.cs_id]
 
-        active_SEs = []
+        active_SEs = [CE.SE_id for CE in CEs_all]
         
+        new_CEs = []
+        CEs_to_adjust = []
         
-        num_added_events = 0
         start = time.time()
         
-        #with Pool() as p:
-        #    p.map(sub_solve, CEs_all)
-
         for CE in CEs_all:
             
-            # get the charge_event id
-            charge_event_id = CE.charge_event_id
-            SE_id = CE.SE_id
-            now_soc = CE.now_soc
+            CE_id = CE.charge_event_id
             
-            active_SEs.append(SE_id)
-            
-            str = 'time:{}  SE_id:{}  soc:{}  '.format(round(next_control_starttime_sec/3600.0, 4), SE_id, now_soc)
-            #print(str)
-            
-            if (cost_deviated_from_forecast):
-                #print("updating existing charge event: ", charge_event_id)
-                self.controller.recalculate_active_charge_event(next_control_starttime_sec, CE)
-            else:
-                
-                # process this charge event only if it is not already processed
-                if charge_event_id not in self.processed_charge_events:
-                    
-                    num_added_events += 1
+            if CE_id not in self.processed_charge_events:
+                new_CEs.append(CE)
+                self.processed_charge_events.append(CE_id)                
 
-                    #print("adding new charge event: ", charge_event_id)
-                    self.processed_charge_events.append(charge_event_id)                
-                    # Add charge event to charge controller
-                    self.controller.add_active_charge_event(next_control_starttime_sec, CE)
+#            else:
+#                if (cost_deviated_from_forecast):
+#                    CEs_to_adjust.append(CE)
         
-        if(cost_deviated_from_forecast):
-            print("recalculating")
-            num_events = len(CEs_all)
-        else:
-            print("adding")
-            num_events = num_added_events
+        EV_forecast_update1 = self.controller.add_new_charge_events(next_control_starttime_sec, new_CEs, forecasted_cost_arr)
+        EV_forecast_update2 = self.controller.adjust_old_charge_events(next_control_starttime_sec, CEs_to_adjust, forecasted_cost_arr)
 
+        if self.communication:
+            self.cost_forecaster.adjust_EV_charging_demand(EV_forecast_update1, next_control_starttime_sec, self.forecast_duration_sec)
+            self.cost_forecaster.adjust_EV_charging_demand(EV_forecast_update2, next_control_starttime_sec, self.forecast_duration_sec)
+
+        num_events = len(new_CEs) + len(CEs_to_adjust)
         print("{}: num events solved".format(num_events))
         time_taken = time.time() - start
         print("{}: solve".format(time_taken))
