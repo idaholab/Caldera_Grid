@@ -41,10 +41,22 @@ class control_strategy_TE(typeA_control):
         return False
     
     def initialize(self):
-        # All supply_equipments in the simulation
-        SE_ids = list(self.datasets_dict[input_datasets.SEid_to_SE_type].keys())
+
+        # All supply_equipments in the simulation using this control strategy        
+        SE_ids = []
+        charge_events = self.datasets_dict[input_datasets.SE_group_charge_event_data]
         
-        self.communication = True
+        for CE_group in charge_events:
+            for CE in CE_group.charge_events:
+
+                if CE.control_enums.ext_control_strategy == self.cs_id:
+                    SE_ids.append(CE.SE_id)
+        
+        if "comm" in self.io_dir.inputs_dir:
+            self.communication = True
+        else:
+            self.communication = False
+
         self.use_cost_forecaster_v3 = True
         self.plot = True
         self.forecast_duration_sec = 12*3600
@@ -54,6 +66,7 @@ class control_strategy_TE(typeA_control):
         charge_controller_input.controller_starttime_sec = self.start_simulation_unix_time
         charge_controller_input.controller_endtime_sec = self.end_simulation_unix_time
         charge_controller_input.controller_timestep_sec = self.control_timestep_sec
+        charge_controller_input.forecast_duration_sec = self.forecast_duration_sec
         charge_controller_input.SE_ids = SE_ids
         charge_controller_input.communication = self.communication
         
@@ -103,8 +116,9 @@ class control_strategy_TE(typeA_control):
         next_control_starttime_sec = current_simulation_unix_time
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
 
-        forecasted_cost_arr = self.cost_forecaster.get_cost_for_time_range(
-            next_control_starttime_sec, next_control_starttime_sec, next_control_starttime_sec + self.forecast_duration_sec, self.control_timestep_sec)
+        forecasted_cost_ts = self.cost_forecaster.get_cost_for_time_range(
+            "adjusted", next_control_starttime_sec, next_control_starttime_sec, 
+            next_control_starttime_sec + self.forecast_duration_sec, self.control_timestep_sec)
 
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
@@ -133,8 +147,8 @@ class control_strategy_TE(typeA_control):
 #                if (cost_deviated_from_forecast):
 #                    CEs_to_adjust.append(CE)
         
-        EV_forecast_update1 = self.controller.add_new_charge_events(next_control_starttime_sec, new_CEs, forecasted_cost_arr)
-        EV_forecast_update2 = self.controller.adjust_old_charge_events(next_control_starttime_sec, CEs_to_adjust, forecasted_cost_arr)
+        EV_forecast_update1 = self.controller.add_new_charge_events(next_control_starttime_sec, new_CEs, forecasted_cost_ts)
+        EV_forecast_update2 = self.controller.adjust_old_charge_events(next_control_starttime_sec, CEs_to_adjust, forecasted_cost_ts)
 
         if self.communication:
             self.cost_forecaster.adjust_EV_charging_demand(EV_forecast_update1, next_control_starttime_sec, self.forecast_duration_sec)

@@ -377,12 +377,11 @@ class TE_cost_forecaster_v3():
         self.forecast_dur_s = 48*3600                                           # How long in the future can we forecast
         self.forecast_ts_s = 1*3600                                             # The timestep in which forecast data is available 
         self.actual_ts_s = 1*3600                                               # The timestep in which actual data is available
-        self.actual_known_for_time = 0.25*3600
-    
+        self.adjustment_time_sec = 4*3600
     
     def adjust_EV_charging_demand(self, adjustment_num_EVs, start_time, forecast_dur):
         
-        ajustment_kW = adjustment_num_EVs * (6.6 / 1000.0)                      # Assuming average of 6.6 kW
+        ajustment_kW = adjustment_num_EVs * (10.58 / 1000.0)                      # Assuming average of 10.58 kW
         
         ajustment_kW_in_demand_ts = np.repeat(ajustment_kW, 15)  # Hardcoding timesteps as 15 min and 1 min for now
         
@@ -399,14 +398,14 @@ class TE_cost_forecaster_v3():
             req_time_step_sec: float) -> None:
         
         # Ensure time_range doesn't go beyond forecast_duration
-        assert end_time_sec - start_time_sec < self.forecast_dur_s, \
+        assert end_time_sec - start_time_sec <= self.forecast_dur_s, \
             "requested time range ({}, {}) hrs is beyond forecast duration of {} hrs"\
             .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
         
         # Ensure self.forecast_time_step_sec is a multiple of req_time_step_sec
         assert abs(fmod(self.actual_ts_s, req_time_step_sec)) < 0.001, \
-            "requested time range ({}, {}) hrs is beyond forecast duration of {} hrs"\
-            .format(start_time_sec/3600, end_time_sec/3600, self.forecast_dur_s/3600)
+            "req_time_step_sec {} hrs is not a multiple of actual_ts_s {} hrs"\
+            .format(self.actual_ts_s/3600, req_time_step_sec/3600)
         
         # Ensure start_time_sec is a perfect multiple of req_time_step_sec
         assert abs(fmod(start_time_sec, req_time_step_sec)) < 0.001 , \
@@ -425,9 +424,10 @@ class TE_cost_forecaster_v3():
      
     def get_data_for_time_range(
             self, data_id: str, data_type: str, cur_time_sec: float,
-            start_time_sec: float, end_time_sec: float, req_time_step_sec: float):
+            start_time_sec: float, end_time_sec: float, req_time_step_sec: float, debug = False):
         
-        self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
+        if debug == False:
+            self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
         
         if data_id == "EV":
             
@@ -517,29 +517,57 @@ class TE_cost_forecaster_v3():
     
     def get_adjusted_data_for_time_range(
             self, data_id:float, cur_time_sec:float, start_time_sec: float, 
-            end_time_sec: float, req_time_step_sec: float):
+            end_time_sec: float, req_time_step_sec: float, debug = False):
         
-        arr = self.get_data_for_time_range(data_id, "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
+        forecast_arr = self.get_data_for_time_range(data_id, "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
         
-        if cur_time_sec >= start_time_sec and cur_time_sec < end_time_sec:
-            idx = int((cur_time_sec-start_time_sec)/req_time_step_sec)
-            arr[idx] = self.get_data_for_time_range(data_id, "actual", cur_time_sec, start_time_sec, start_time_sec+req_time_step_sec , req_time_step_sec)[0]
+        actual_arr = self.get_data_for_time_range(data_id, "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
         
-        return arr
+        weight_arr = np.zeros(int((end_time_sec - start_time_sec) / req_time_step_sec))
+        num_elements_in_gradient = int((self.adjustment_time_sec) / req_time_step_sec)
+        
+        weight_arr[:num_elements_in_gradient] = np.linspace(1, 0, num_elements_in_gradient)        
+        
+        return actual_arr * weight_arr + forecast_arr * (1 - weight_arr)
 
     def get_cost_for_time_range(
-            self, cur_time_sec:float, start_time_sec: float, 
-            end_time_sec: float, req_time_step_sec: float):
+            self, cost_type: str, cur_time_sec: float, start_time_sec: float, 
+            end_time_sec: float, req_time_step_sec: float, debug = False):
         
         dem_data = pd.DataFrame()
         gen_data = pd.DataFrame()
         
-        # get all known data
-        dem_data["demand"] = self.get_adjusted_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        dem_data["EV"] = self.get_adjusted_data_for_time_range("EV", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["nuclear"] = self.get_adjusted_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["solar"] = self.get_adjusted_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)
-        gen_data["wind"] = self.get_adjusted_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec)        
+        if (cost_type == "adjusted"):
+            # get all known data
+            dem_data["demand"] = self.get_adjusted_data_for_time_range("demand", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            dem_data["EV"] = self.get_adjusted_data_for_time_range("EV", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["nuclear"] = self.get_adjusted_data_for_time_range("nuclear", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["solar"] = self.get_adjusted_data_for_time_range("solar", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["wind"] = self.get_adjusted_data_for_time_range("wind", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)        
+
+        elif (cost_type == "forecasted"):
+            # get all known data
+            dem_data["demand"] = self.get_data_for_time_range("demand", "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            dem_data["EV"] = self.get_data_for_time_range("EV", "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["nuclear"] = self.get_data_for_time_range("nuclear", "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["solar"] = self.get_data_for_time_range("solar", "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["wind"] = self.get_data_for_time_range("wind", "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)        
+
+        elif (cost_type == "actual"):
+            # get all known data
+            dem_data["demand"] = self.get_data_for_time_range("demand", "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            dem_data["EV"] = self.get_data_for_time_range("EV", "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["nuclear"] = self.get_data_for_time_range("nuclear", "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["solar"] = self.get_data_for_time_range("solar", "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            gen_data["wind"] = self.get_data_for_time_range("wind", "actual", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)        
+
+        else:
+            print("")
+            print("")
+            print("ERROR!!!: cost type unknown:", cost_type)
+            print("")
+            print("")
+
         gen_data["fossil_fuel"] = dem_data["demand"] + dem_data["EV"] - gen_data["nuclear"] - gen_data["solar"] - gen_data["wind"]
         
         gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0

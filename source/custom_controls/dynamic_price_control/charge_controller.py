@@ -79,21 +79,17 @@ class charge_controller:
             constuctor initializes the charge controller, allocates the controller_2Darr that maintains the status of charge events being controlled.
         '''
         
-        self.plot = True
         self.debug_plot = False
         self.plots = set()
         self.input_folder = charge_controller_input.io_dir.inputs_dir
         self.figures_folder = charge_controller_input.io_dir.figures_dir
         
-        self.forecast_duration_sec = 12*3600                                    # Max forecast of 12 hours
         self.controller_starttime_sec = charge_controller_input.controller_starttime_sec   
+        self.forecast_duration_sec = charge_controller_input.forecast_duration_sec
         self.controller_endtime_sec = charge_controller_input.controller_endtime_sec + self.forecast_duration_sec
         self.controller_timestep_sec = charge_controller_input.controller_timestep_sec
         self.communication = charge_controller_input.communication
-        self.charge_profile_timestep_sec = 60                                   # 1 minute timestep
         self.SE_ids = charge_controller_input.SE_ids
-        
-        self.use_cost_forecaster_v3 = True
         
         # CP_interface_v2 generates charge profiles
         self.charge_profiles = CP_interface_v2(self.input_folder)
@@ -182,10 +178,10 @@ class charge_controller:
         
         for active_charge_event in CEs:
         
-            (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution) = self.__compute_charge_event_general(next_control_starttime_sec, active_charge_event, forecasted_cost_arr)
+            return_val = self.__compute_charge_event_general(next_control_starttime_sec, active_charge_event, forecasted_cost_arr)
             
-            if self.communication:
-                
+            if self.communication and return_val != None:
+                (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution) = return_val                
                 original[:num_steps_to_charge_by_controller] += 1
                 actual[cost_profile_indeces_cheapest] += 1                
                 result += actual - original
@@ -200,10 +196,10 @@ class charge_controller:
 
         for active_charge_event in CEs:
         
-            (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution) = self.__compute_charge_event_general(next_control_starttime_sec, active_charge_event, forecasted_cost_arr)
+            return_val = (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution) = self.__compute_charge_event_general(next_control_starttime_sec, active_charge_event, forecasted_cost_arr)
             
-            if self.communication:
-                
+            if self.communication and return_val != None:
+                (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution) = return_val
                 actual[cost_profile_indeces_cheapest] += 1
                 result += actual - prev_solution
         
@@ -252,11 +248,13 @@ class charge_controller:
         #       Build Charge profile timeseries
         #-------------------------------------------
         
+        charge_profile_timestep_sec = 60                                        # 1 minute timestep
+
         # create charge_profile
-        all_charge_profile_data = self.charge_profiles.create_charge_profile_from_model(self.charge_profile_timestep_sec, vehicle_type, supply_equipment_type, now_soc, departure_SOC, 1000, {}, {})
+        all_charge_profile_data = self.charge_profiles.create_charge_profile_from_model(charge_profile_timestep_sec, vehicle_type, supply_equipment_type, now_soc, departure_SOC, 1000, {}, {})
         
         # create 15 min buckets, with energy consumed in each bucket.
-        num_bins_to_aggregate = int(self.controller_timestep_sec / self.charge_profile_timestep_sec)
+        num_bins_to_aggregate = int(self.controller_timestep_sec / charge_profile_timestep_sec)
         
         charge_profile_data = (np.add.reduceat(all_charge_profile_data.P3_kW, np.arange(0, len(all_charge_profile_data.P3_kW), num_bins_to_aggregate))/num_bins_to_aggregate)*(self.controller_timestep_sec/3600.0)
         
