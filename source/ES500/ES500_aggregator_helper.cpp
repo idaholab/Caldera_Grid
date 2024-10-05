@@ -288,14 +288,14 @@ std::cout << str1 << std::endl << std::endl;
 	//---------------------------
 	
 	SE_ids_to_delete.clear();
-	for (int x: is_charging_SE_ids)
+	for (int x: this->is_charging_SE_ids)
 	{
 		if (SE_ids.count(x) == 0) // Does not contain
 			SE_ids_to_delete.push_back(x);
 	}
 	
 	for (int x: SE_ids_to_delete)
-		is_charging_SE_ids.erase(x);
+		this->is_charging_SE_ids.erase(x);
 
 	SE_ids.clear();
 

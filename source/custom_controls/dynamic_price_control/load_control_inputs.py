@@ -18,12 +18,14 @@ class load_demand_gen_files():
         generation_dict = {}
         
         for file in self.demand_files:                                          # load demand files
-             demand_dict[file] = self.load_file(
-                 os.path.join(self.input_folder, file + self.file_extension))
+            filepath = os.path.join(self.input_folder, file + self.file_extension)
+            if os.path.isfile(filepath):            
+                demand_dict[file] = self.load_file( filepath )
            
         for file in self.generation_files:                                      # load generation files
-             generation_dict[file] = self.load_file(
-                 os.path.join(self.input_folder, file + self.file_extension))
+            filepath = os.path.join(self.input_folder, file + self.file_extension)
+            if os.path.isfile(filepath):            
+                generation_dict[file] = self.load_file( filepath )
         
         #self.perform_multifile_error_checks()
         

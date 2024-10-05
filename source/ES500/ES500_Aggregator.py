@@ -563,11 +563,12 @@ class solve_objective_function:
     
     
     def __format_obj_fun_cvxopt(self, objective_function_, num_time_steps, D_net_kWh):
-        K = num_time_steps        
+        K = num_time_steps
         
         if objective_function_ == ES500_objective_function.minimize_load:
             P = 2*np.identity(K)
             q = 2*np.array([D_net_kWh]).T
+            #q = 10000*np.array([D_net_kWh]).T
             
         elif objective_function_ in(ES500_objective_function.minimize_delta_load, ES500_objective_function.minimize_delta_pev_load):
             singlerow = np.zeros((1,K))

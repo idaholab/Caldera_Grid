@@ -72,12 +72,6 @@ if run_uncontrolled == True:
     scenarios.append("home_uncontrolled")
     scenarios.append("work_uncontrolled")
 
-#scenarios.append("home_dynamic_100")
-#scenarios.append("home_dynamic_comm_100")
-#scenarios.append("work_dynamic_100")
-#scenarios.append("work_dynamic_comm_100")
-
-
 for i in range(0, 101, 25):
     scenarios.append("home_dynamic_comm_{}".format(i))
     scenarios.append("work_dynamic_comm_{}".format(i))

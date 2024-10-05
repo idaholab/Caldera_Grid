@@ -82,6 +82,7 @@ class ES500_Aggregator_charging_needs_forecast:
         
         #------------------------------------------
         # Append additional day to end of forecast
+        # But why?            
         #------------------------------------------        
         df = pd.DataFrame(self.arrival_unix_time)
         column_name = df.columns[0]        
@@ -143,6 +144,8 @@ class ES500_Aggregator_charging_needs_forecast:
             e3_charge_remain = (departure_SOC - arrival_SOC) * 80/100
             
             e3_charge_remain_kWh.append(e3_charge_remain)
+            
+            # This should be based on the charge rate
             e3_step_max_kWh.append(6.6 * self.aggregator_timestep_hrs)
         
         #---------------
