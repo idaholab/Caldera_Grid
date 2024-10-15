@@ -133,6 +133,7 @@ class load_input_files:
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES110)
         #self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES200)
         #self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES300)
+        self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES400)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES500)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.VS100)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.VS200_A)
@@ -178,6 +179,7 @@ class load_input_files:
         if L2_control_strategies_enum.ES110   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES110*.csv'))
         if L2_control_strategies_enum.ES200   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES200*.csv'))
         if L2_control_strategies_enum.ES300   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES300*.csv'))
+        if L2_control_strategies_enum.ES400   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES400*.csv'))
         if L2_control_strategies_enum.ES500   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES500*.csv'))
         if L2_control_strategies_enum.VS100   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'VS100*.csv'))
         if L2_control_strategies_enum.VS200_A in self.L2_control_strategies_to_include: X.append((parameters_dir, 'VS200-A*.csv'))
@@ -218,6 +220,7 @@ class load_input_files:
             if L2_control_strategies_enum.ES110   in self.L2_control_strategies_to_include: filepaths.ES110   = Y[i]; i += 1
             if L2_control_strategies_enum.ES200   in self.L2_control_strategies_to_include: filepaths.ES200   = Y[i]; i += 1
             if L2_control_strategies_enum.ES300   in self.L2_control_strategies_to_include: filepaths.ES300   = Y[i]; i += 1
+            if L2_control_strategies_enum.ES400   in self.L2_control_strategies_to_include: filepaths.ES400   = Y[i]; i += 1
             if L2_control_strategies_enum.ES500   in self.L2_control_strategies_to_include: filepaths.ES500   = Y[i]; i += 1
             if L2_control_strategies_enum.VS100   in self.L2_control_strategies_to_include: filepaths.VS100   = Y[i]; i += 1
             if L2_control_strategies_enum.VS200_A in self.L2_control_strategies_to_include: filepaths.VS200_A = Y[i]; i += 1
@@ -282,6 +285,10 @@ class load_input_files:
                 
             elif x_enum == L2_control_strategies_enum.ES300:
                 X = load_ES300_parameters(filepaths.ES300)
+                load_parameters.append( (x_enum, X) )
+            
+            elif x_enum == L2_control_strategies_enum.ES400:
+                X = load_ES400_parameters(filepaths.ES400)
                 load_parameters.append( (x_enum, X) )
                 
             elif x_enum == L2_control_strategies_enum.ES500:
