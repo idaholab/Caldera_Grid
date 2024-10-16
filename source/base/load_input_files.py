@@ -325,7 +325,7 @@ class load_input_files:
         
         for (x_enum, load_parameters_obj) in load_parameters:
             (is_success, parameters_dict) = load_parameters_obj.load()
-        
+            
             if is_success:
                 control_strategy_parameters_dict[x_enum] = parameters_dict
             else:
@@ -1310,6 +1310,62 @@ class load_ES300_parameters:
         self.meta_data_info['double'] = {
                                     'weight_factor_to_calculate_valley_fill_target' : (0, 1)
         }
+        
+        self.processor_obj = parameters_file_processor(self.meta_data_info)
+    
+    
+    def __parameter_file_specific_checks(self, parameters_dict, valid_parameter_name_to_line_number_map):
+        conversion_obj = data_conversion_and_validation()
+        errors = []
+        
+        #------------------
+        
+        return errors
+    
+    
+    def load(self):
+        (errors, parameters_dict, valid_parameter_name_to_line_number_map) = self.processor_obj.validate(self.file_path)
+        
+        if len(errors) > 0:
+            print_errors_file(self.file_path, errors)
+            return (False, None)  #(is_successful, parameters_dict)
+        
+        #------------------------------------------
+        #      Parameter File Specific Checks
+        #------------------------------------------
+        errors += self.__parameter_file_specific_checks(parameters_dict, valid_parameter_name_to_line_number_map)
+            
+        if len(errors) > 0:
+            print_errors_file(self.file_path, errors)
+            return (False, None)  #(is_successful, parameters_dict)
+        
+        #========================================
+        
+        return (True, parameters_dict)   #(is_successful, parameters_dict)
+
+
+#===============================
+#  Load ES400 Parameters
+#===============================
+
+class load_ES400_parameters:
+
+    def __init__(self, file_path_):
+        self.file_path = file_path_
+
+        self.meta_data_info = {}
+        self.meta_data_info['str'] = {}
+        self.meta_data_info['bool'] = {}   
+        self.meta_data_info['int'] = {}
+        self.meta_data_info['double'] = {}
+        self.meta_data_info['list_of_tuples_dd'] = {}
+        self.meta_data_info['dict_of_string_keys_double_vals'] = {}
+        self.meta_data_info['dict_of_string_keys_string_vals'] = {}
+        self.meta_data_info['list_of_3ples_StrStrStr'] = {}
+        
+        self.meta_data_info['bool'] = {
+            'communication' : None
+            }
         
         self.processor_obj = parameters_file_processor(self.meta_data_info)
     
