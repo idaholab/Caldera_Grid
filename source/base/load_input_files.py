@@ -1366,6 +1366,12 @@ class load_ES400_parameters:
         self.meta_data_info['bool'] = {
             'communication' : None
             }
+
+        self.meta_data_info['int'] = {
+            'controller_timestep_mins' : None, 
+            'controller_forecast_horizon_hrs' : None
+        }
+
         
         self.processor_obj = parameters_file_processor(self.meta_data_info)
     

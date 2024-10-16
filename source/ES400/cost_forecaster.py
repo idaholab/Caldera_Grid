@@ -1,7 +1,7 @@
 from Caldera_globals import timeseries
 
-from dynamic_price_control.load_control_inputs import load_demand_gen_files
-from dynamic_price_control.cost_solver import cost_solver
+from load_control_inputs import load_demand_gen_files
+from cost_solver import cost_solver
 
 import pandas as pd
 import numpy as np

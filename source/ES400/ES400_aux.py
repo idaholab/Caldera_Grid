@@ -1,32 +1,34 @@
 from global_aux import Caldera_message_types, input_datasets, container_class
 from control_templates import typeA_control
+from Caldera_ICM_Aux import get_baseLD_forecast
+from Caldera_globals import L2_control_strategies_enum
 
-from dynamic_price_control.charge_controller import charge_controller
-from dynamic_price_control.cost_forecaster import TE_cost_forecaster_v2, TE_cost_forecaster_v3
+from charge_controller import charge_controller
+from cost_forecaster import TE_cost_forecaster_v2, TE_cost_forecaster_v3
 
 import time
 import os
 
-from multiprocessing import Pool
-
-class control_strategy_TE(typeA_control):
+class ES400_aux(typeA_control):
     
     def __init__(self, io_dir, simulation_time_constraints):
         super().__init__(io_dir, simulation_time_constraints)
         
-        self.cs_id = 'ext0001'
+        self.simulation_time_constraints = simulation_time_constraints
         self.io_dir = io_dir
-        self.control_timestep_min = 15    
-        self.request_state_lead_time_min = (2*simulation_time_constraints.grid_timestep_sec + 0.5)/60
-        self.send_control_info_lead_time_min = (simulation_time_constraints.grid_timestep_sec + 0.5)/60
-        
-        self.start_simulation_unix_time = simulation_time_constraints.start_simulation_unix_time
-        self.end_simulation_unix_time = simulation_time_constraints.end_simulation_unix_time
-        self.control_timestep_sec = self.control_timestep_min * 60
         
     
     def get_input_dataset_enum_list(self):
-        return [input_datasets.SE_group_configuration, input_datasets.SE_group_charge_event_data, input_datasets.SEid_to_SE_type, input_datasets.charge_event_builder, input_datasets.external_strategies]
+        return [
+        input_datasets.SE_CE_data_obj, 
+        input_datasets.baseLD_data_obj, 
+        input_datasets.SE_group_configuration, 
+        input_datasets.Caldera_L2_ES_strategies, 
+        input_datasets.Caldera_global_parameters, 
+        input_datasets.Caldera_control_strategy_parameters_dict, 
+        input_datasets.SE_group_charge_event_data, 
+        input_datasets.SEid_to_SE_type
+        ]
 
     def load_input_datasets(self, datasets_dict):
         # datasets_dict is a dictionary with input_datasets as keys.
@@ -34,38 +36,55 @@ class control_strategy_TE(typeA_control):
     
     def terminate_this_federate(self):
         
-        if self.cs_id not in self.datasets_dict[input_datasets.external_strategies]:
-            print("Control Strategy TE is not being used in charge events. Control Strategy TE federate Quitting")
-            return True
-        
-        return False
+        return L2_control_strategies_enum.ES400 not in self.datasets_dict[input_datasets.Caldera_L2_ES_strategies]
     
     def initialize(self):
 
-        # All supply_equipments in the simulation using this control strategy        
+        SE_CE_data_obj = self.datasets_dict[input_datasets.SE_CE_data_obj]
+        baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
+        global_parameters = self.datasets_dict[input_datasets.Caldera_global_parameters]
+        L2_control_strategy_parameters_dict = self.datasets_dict[input_datasets.Caldera_control_strategy_parameters_dict]
+        ES400_params = L2_control_strategy_parameters_dict[L2_control_strategies_enum.ES400]
+        
+        self.start_simulation_unix_time = self.simulation_time_constraints.start_simulation_unix_time
+        self.end_simulation_unix_time = self.simulation_time_constraints.end_simulation_unix_time
+        self.controller_timestep_mins = ES400_params['controller_timestep_mins']
+        self.communication = ES400_params['communication']
+        self.forecast_duration_sec = ES400_params['controller_forecast_horizon_hrs'] * 3600
+        self.use_cost_forecaster_v3 = True
+        self.plot = True
+
+        #-------------------------------------
+        #    Calculate Timing Parameters
+        #-------------------------------------        
+
+        X = container_class()
+        X.control_timestep_min = self.controller_timestep_mins
+        X.send_control_info_lead_time_min = (self.simulation_time_constraints.grid_timestep_sec + 0.5)/60
+        X.request_state_lead_time_min = (2*self.simulation_time_constraints.grid_timestep_sec + 0.5)/60
+        self._calculate_timing_parameters(X, self.__class__.__name__)
+
+        #-------------------------------------
+        #    Initialize ES400 controller
+        #-------------------------------------        
+
+        # All supply_equipments in the simulation using this control strategy      
+
         SE_ids = []
         charge_events = self.datasets_dict[input_datasets.SE_group_charge_event_data]
         
         for CE_group in charge_events:
             for CE in CE_group.charge_events:
 
-                if CE.control_enums.ext_control_strategy == self.cs_id:
+                if CE.control_enums.ES_control_strategy == L2_control_strategies_enum.ES400:
                     SE_ids.append(CE.SE_id)
-        
-        if "comm" in self.io_dir.inputs_dir:
-            self.communication = True
-        else:
-            self.communication = False
 
-        self.use_cost_forecaster_v3 = True
-        self.plot = True
-        self.forecast_duration_sec = 12*3600
         
         charge_controller_input = container_class()
         charge_controller_input.io_dir = self.io_dir
         charge_controller_input.controller_starttime_sec = self.start_simulation_unix_time
         charge_controller_input.controller_endtime_sec = self.end_simulation_unix_time
-        charge_controller_input.controller_timestep_sec = self.control_timestep_sec
+        charge_controller_input.controller_timestep_sec = self.controller_timestep_mins
         charge_controller_input.forecast_duration_sec = self.forecast_duration_sec
         charge_controller_input.SE_ids = SE_ids
         charge_controller_input.communication = self.communication
@@ -85,23 +104,13 @@ class control_strategy_TE(typeA_control):
         
         # keeps track of charge events that are handed over to charge controller
         self.processed_charge_events = []
-        #-------------------------------------
-        #    Calculate Timing Parameters
-        #-------------------------------------        
-
-        X = container_class()
-        X.control_timestep_min = self.control_timestep_min
-        X.request_state_lead_time_min = self.request_state_lead_time_min
-        X.send_control_info_lead_time_min = self.send_control_info_lead_time_min
-        self._calculate_timing_parameters(X, self.__class__.__name__)
-
+        
        
     def log_data(self):
         pass
     
     def get_messages_to_request_state_info_from_Caldera(self, current_simulation_unix_time):
         return_dict = {}
-        return_dict[Caldera_message_types.get_active_charge_events_by_extCS] = [self.cs_id]
         return return_dict
     
     def get_messages_to_request_state_info_from_OpenDSS(self, current_simulation_unix_time):
@@ -118,7 +127,7 @@ class control_strategy_TE(typeA_control):
 
         forecasted_cost_ts = self.cost_forecaster.get_cost_for_time_range(
             "adjusted", next_control_starttime_sec, next_control_starttime_sec, 
-            next_control_starttime_sec + self.forecast_duration_sec, self.control_timestep_sec)
+            next_control_starttime_sec + self.forecast_duration_sec, self.controller_timestep_mins)
 
         #----------------------------------------------------------
         #  Compare forecasted cost and actual cost for next step
