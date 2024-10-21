@@ -3,14 +3,12 @@ import os
 
 class ES400_logger():
 
-    def __init__(self, log_path):
+    def __init__(self, log_path, headers):
         
         self.log_path = log_path
-        
         self.data_str = ''
-        self.headers = ["step", "num_events", "time_per_solve_s", "time_total_solve_s", "time_total_inc_comm_s"]
 
-        self.log(self.headers)
+        self.log(headers)
 
         
     def log(self, data_arr):

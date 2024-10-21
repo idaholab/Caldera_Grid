@@ -79,7 +79,7 @@ class charge_controller:
             constuctor initializes the charge controller, allocates the controller_2Darr that maintains the status of charge events being controlled.
         '''
         
-        self.debug_plot = False
+        self.debug_plot = True
         self.plots = set()
         self.input_folder = charge_controller_input.io_dir.inputs_dir
         self.figures_folder = charge_controller_input.io_dir.figures_dir
@@ -166,7 +166,7 @@ class charge_controller:
         
         
         if self.debug_plot == True:
-            self.__debug_plot(next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, active_charge_event)
+            self.__debug_plot(next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, cost_profile_ts, active_charge_event)
             
         return (num_steps_to_charge_by_controller, cost_profile_indeces_cheapest, prev_solution)
 
@@ -230,7 +230,7 @@ class charge_controller:
         return PQ_setpoints
     
 
-    def __debug_plot(self, next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, active_charge_event):
+    def __debug_plot(self, next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, cost_profile, active_charge_event):
         
         # get the required info from active_charge_event
         SE_id = active_charge_event.SE_id
@@ -263,8 +263,9 @@ class charge_controller:
             
         #-------------------------------------------
             
-        start_idx = self.get_time_idx_from_time_sec(start_time_sec)  
-        end_idx = self.get_time_idx_from_time_sec(end_time_sec)            
+        start_idx = self.controller_data.get_indices_from_time_s(start_time_sec)  
+        end_idx = self.controller_data.get_indices_from_time_s(end_time_sec)            
+        
         profile_size = end_idx - start_idx
             
         time_profile = np.arange(start_time_sec, end_time_sec, self.controller_timestep_sec)/3600.0

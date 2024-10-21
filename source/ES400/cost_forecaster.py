@@ -371,44 +371,12 @@ class TE_cost_forecaster_v3():
         loader = load_demand_gen_files(input_folder)                            # loader object
         (self.dem_dict, self.gen_dict, self.cost_dict) = loader.load()          # loads all input file
         
+        #self.actual_data_cache = {}
+        #self.forcasted_data_cache ={}
+
         if "EV" in self.dem_dict:
-            self.EV_demand_df = self.dem_dict["EV"][2]["forecast_00"]               # EV_demand_forecaster()
+            self.EV_demand_df = self.dem_dict["EV"][2]["forecast_00"]           
 
-        #------------------------------------        
-        #Temporary
-        
-        '''
-        
-        for key in self.dem_dict.keys():
-            reduction = 10
-            if key != "EV":
-                (metadata_dict, frcst_metadata_dict, data_dict) = self.dem_dict[key]
-                metadata_dict['gen_min'] = metadata_dict['gen_min']/reduction
-                metadata_dict['gen_max'] = metadata_dict['gen_max']/reduction
-                
-                for data_id in data_dict.keys():
-                    
-                    data_dict[data_id][data_id] = data_dict[data_id][data_id]/reduction
-                    
-                
-                self.dem_dict[key] = (metadata_dict, frcst_metadata_dict, data_dict)
-                
-        for key in self.gen_dict.keys():
-            reduction = 10
-            if key == 'nuclear':
-                reduction = 20
-            
-            (metadata_dict, frcst_metadata_dict, data_dict) = self.gen_dict[key]
-            metadata_dict['gen_min'] = metadata_dict['gen_min']/reduction
-            metadata_dict['gen_max'] = metadata_dict['gen_max']/reduction
-            
-            for data_id in data_dict.keys():
-                data_dict[data_id][data_id] = data_dict[data_id][data_id]/reduction
-
-            self.gen_dict[key] = (metadata_dict, frcst_metadata_dict, data_dict)
-        '''
-        #------------------------------------
-        
         if len(self.gen_dict) == 0:
             raise ValueError('ERROR: No generation data exists to compute costs')
 
@@ -421,9 +389,9 @@ class TE_cost_forecaster_v3():
     
     def adjust_EV_charging_demand(self, adjustment_num_EVs, start_time, forecast_dur):
         
-        ajustment_kW = adjustment_num_EVs * (10.58 / 1000.0)                      # Assuming average of 10.58 kW
+        ajustment_kW = adjustment_num_EVs * (10.58 / 1000.0)                    # Assuming average of 10.58 kW
         
-        ajustment_kW_in_demand_ts = np.repeat(ajustment_kW, 15)  # Hardcoding timesteps as 15 min and 1 min for now
+        ajustment_kW_in_demand_ts = np.repeat(ajustment_kW, 15)                 # Hardcoding timesteps as 15 min and 1 min for now
         
         time_col = "forecast_00_time"
         val_col = "forecast_00"
@@ -480,10 +448,11 @@ class TE_cost_forecaster_v3():
             "requested time_range_sec: {} should be a multiple of req_time_step_sec: {}"\
             .format(end_time_sec - start_time_sec, req_time_step_sec)
      
-    def get_data_for_time_range(
+    def get_raw_data_for_time_range(
             self, data_id: str, data_type: str, cur_time_sec: float,
             start_time_sec: float, end_time_sec: float, req_time_step_sec: float, debug = False):
         
+        # The check doesn't let the data go beyond forecast duration
         if debug == False:
             self.check_time_values(start_time_sec, end_time_sec, req_time_step_sec)
         
@@ -572,7 +541,60 @@ class TE_cost_forecaster_v3():
                 break
 
         return final_data
-    
+
+    def get_data_for_time_range(self, data_id:float, data_type: str, cur_time_sec:float, 
+            start_time_sec: float, end_time_sec: float, req_time_step_sec: float, 
+            debug = False):
+        
+        demand = self.get_raw_data_for_time_range("demand", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+
+        n = len(demand)
+
+        if "EV" in self.dem_dict: 
+            EV = self.get_raw_data_for_time_range("EV", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+        else:
+            EV = np.zeros( n )
+
+        if "nuclear" in self.gen_dict: 
+            nuclear = self.get_raw_data_for_time_range("nuclear", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            nuclear = np.clip(nuclear, a_min = None, a_max = demand + EV)
+        else:
+            nuclear = np.zeros( n )
+
+        if "solar" in self.gen_dict: 
+            solar = self.get_raw_data_for_time_range("solar", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            solar = np.clip(nuclear + solar, a_min = None, a_max = demand + EV) - nuclear
+
+        else:
+            solar = np.zeros( n )
+
+        if "wind" in self.gen_dict: 
+            wind = self.get_raw_data_for_time_range("wind", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+            wind = np.clip(nuclear + solar + wind, a_min = None, a_max = demand + EV) - nuclear - solar
+
+        else:
+            wind = np.zeros( n )
+
+        #if "fossil_fuel" in self.gen_dict: 
+        #    fossil_fuel = self.get_raw_data_for_time_range("fossil_fuel", data_type, cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)
+        #    fossil_fuel = np.clip(nuclear + solar + wind + fossil_fuel, a_min = None, a_max = demand + EV) - nuclear - solar - wind
+
+        #else:
+        fossil_fuel = demand + EV - nuclear - solar - wind
+
+        if data_id == 'demand':
+            return demand
+        elif data_id == 'nuclear':
+            return nuclear
+        elif data_id == 'solar':
+            return solar
+        elif data_id == 'wind':
+            return wind
+        elif data_id == 'fossil_fuel':
+            return fossil_fuel
+
+
+        
     def get_adjusted_data_for_time_range(
             self, data_id:float, cur_time_sec:float, start_time_sec: float, 
             end_time_sec: float, req_time_step_sec: float, debug = False):
@@ -615,7 +637,11 @@ class TE_cost_forecaster_v3():
             if "wind" in self.gen_dict: 
                 gen_data["wind"] = self.get_adjusted_data_for_time_range(
                     "wind", cur_time_sec, start_time_sec, end_time_sec, 
-                    req_time_step_sec, debug)        
+                    req_time_step_sec, debug)   
+            
+            gen_data["fossil_fuel"] = self.get_adjusted_data_for_time_range(
+                    "fossil_fuel", cur_time_sec, start_time_sec, end_time_sec, 
+                    req_time_step_sec, debug)   
 
         elif (cost_type == "forecasted"):
             # get all known data
@@ -638,6 +664,10 @@ class TE_cost_forecaster_v3():
                 gen_data["wind"] = self.get_data_for_time_range(
                     "wind", "forecast", cur_time_sec, start_time_sec, 
                     end_time_sec, req_time_step_sec, debug)        
+            
+            gen_data["fossil_fuel"] = self.get_data_for_time_range(
+                    "fossil_fuel", "forecast", cur_time_sec, start_time_sec, 
+                    end_time_sec, req_time_step_sec, debug)   
 
         elif (cost_type == "actual"):
             # get all known data
@@ -661,6 +691,9 @@ class TE_cost_forecaster_v3():
                     "wind", "actual", cur_time_sec, start_time_sec, 
                     end_time_sec, req_time_step_sec, debug)        
 
+            gen_data["fossil_fuel"] = self.get_data_for_time_range(
+                    "fossil_fuel", "actual", cur_time_sec, start_time_sec, 
+                    end_time_sec, req_time_step_sec, debug)   
         else:
             print("")
             print("")
@@ -668,19 +701,6 @@ class TE_cost_forecaster_v3():
             print("")
             print("")
 
-
-        gen_data["fossil_fuel"] = dem_data["demand"]
-        if "EV" in self.dem_dict: 
-            gen_data["fossil_fuel"] += dem_data["EV"]
-        if "nuclear" in self.gen_dict: 
-            gen_data["fossil_fuel"] -= gen_data["nuclear"]
-        if "solar" in self.gen_dict:
-            gen_data["fossil_fuel"] -= gen_data["solar"]
-        if "wind" in self.gen_dict: 
-            gen_data["fossil_fuel"] -= gen_data["wind"]
-
-        gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
-        
         total_cost_usd = np.zeros(int((end_time_sec - start_time_sec) / req_time_step_sec))
         
         for (data_id, arr) in gen_data.items():
@@ -720,18 +740,10 @@ class TE_cost_forecaster_v3():
             gen_data["wind"] = self.get_data_for_time_range(
                 "wind", cost_type, time_sec, time_sec, 
                 time_sec + req_time_step_sec, req_time_step_sec) 
-        
-        gen_data["fossil_fuel"] = dem_data["demand"]
-        if "EV" in self.dem_dict: 
-            gen_data["fossil_fuel"] += dem_data["EV"]
-        if "nuclear" in self.gen_dict: 
-            gen_data["fossil_fuel"] -= gen_data["nuclear"]
-        if "solar" in self.gen_dict:
-            gen_data["fossil_fuel"] -= gen_data["solar"]
-        if "wind" in self.gen_dict: 
-            gen_data["fossil_fuel"] -= gen_data["wind"]
                     
-        gen_data["fossil_fuel"][ np.where(gen_data["fossil_fuel"] < 0.0 )[0] ] = 0.0
+        gen_data["fossil_fuel"] = self.get_data_for_time_range(
+                "fossil_fuel", cost_type, time_sec, time_sec, 
+                time_sec + req_time_step_sec, req_time_step_sec) 
         
         total_cost_usd = 0.0
         

@@ -9,6 +9,8 @@ from cost_forecaster import TE_cost_forecaster_v2, TE_cost_forecaster_v3
 
 import time
 import os
+import numpy as np
+import pandas as pd
 
 class ES400_aux(typeA_control):
     
@@ -52,6 +54,7 @@ class ES400_aux(typeA_control):
         self.start_simulation_unix_time = self.simulation_time_constraints.start_simulation_unix_time
         self.end_simulation_unix_time = self.simulation_time_constraints.end_simulation_unix_time
         self.controller_timestep_mins = ES400_params['controller_timestep_mins']
+        self.controller_timestep_secs = self.controller_timestep_mins * 60.0
         self.communication = ES400_params['communication']
         self.forecast_duration_sec = ES400_params['controller_forecast_horizon_hrs'] * 3600
         self.use_cost_forecaster_v3 = True
@@ -87,7 +90,7 @@ class ES400_aux(typeA_control):
         charge_controller_input.io_dir = self.io_dir
         charge_controller_input.controller_starttime_sec = self.start_simulation_unix_time
         charge_controller_input.controller_endtime_sec = self.end_simulation_unix_time
-        charge_controller_input.controller_timestep_sec = self.controller_timestep_mins
+        charge_controller_input.controller_timestep_sec = self.controller_timestep_mins * 60
         charge_controller_input.forecast_duration_sec = self.forecast_duration_sec
         charge_controller_input.SE_ids = self.SE_ids
         charge_controller_input.communication = self.communication
@@ -110,7 +113,8 @@ class ES400_aux(typeA_control):
 
         self.runtime_arr = []
 
-        self.logger = ES400_logger(self.io_dir.outputs_dir)
+        self.performance_logger = ES400_logger(self.io_dir.outputs_dir, ["step", "num_events", "time_per_solve_s", "time_total_solve_s", "time_total_inc_comm_s"])
+        #self.cost_logger = ES400_logger(self.io_dir.outputs_dir, [ "time", "demand", "nuclear", "solar", "wind", "fossil_fuel", "cost"] )
         self.step = 0
         self.time_per_solve_s = 0
         self.time_total_solve_s = 0
@@ -122,7 +126,7 @@ class ES400_aux(typeA_control):
         
         if self.step > 0:
             self.time_total_inc_comm_s = self.runtime_arr[-1] - self.runtime_arr[-2]
-            self.logger.log([self.step, self.num_events, self.time_per_solve_s, self.time_total_solve_s, self.time_total_inc_comm_s])
+            self.performance_logger.log([self.step, self.num_events, self.time_per_solve_s, self.time_total_solve_s, self.time_total_inc_comm_s])
         self.step += 1
         
     def get_messages_to_request_state_info_from_Caldera(self, current_simulation_unix_time):
@@ -145,7 +149,7 @@ class ES400_aux(typeA_control):
         # forecasted_cost_ts is a timeseries of cost from current time to forecast duration
         forecasted_cost_ts = self.cost_forecaster.get_cost_for_time_range(
             "adjusted", next_control_starttime_sec, next_control_starttime_sec, 
-            next_control_starttime_sec + self.forecast_duration_sec, self.controller_timestep_mins)
+            next_control_starttime_sec + self.forecast_duration_sec, self.controller_timestep_secs)
 
         start = time.time()
         
@@ -205,5 +209,13 @@ class ES400_aux(typeA_control):
         return (Caldera_control_info_dict, DSS_control_info_dict)
 
     def cleanup_this_federate(self):
+
+        cost_df = pd.DataFrame()
+        debug = True
+        cost_df['time'] = np.arange(self.start_simulation_unix_time, self.end_simulation_unix_time, self.controller_timestep_secs)/3600.0
+        for data_id in ['demand', 'nuclear', 'solar', 'wind', 'fossil_fuel']:
+            cost_df[data_id] = np.array(self.cost_forecaster.get_data_for_time_range( data_id, 'actual', self.start_simulation_unix_time, self.start_simulation_unix_time, self.end_simulation_unix_time, self.controller_timestep_secs, debug).data)
+        cost_df['cost'] = np.array(self.cost_forecaster.get_cost_for_time_range('actual', self.start_simulation_unix_time, self.start_simulation_unix_time, self.end_simulation_unix_time, self.controller_timestep_secs, debug).data)
         
-        self.logger.write_log()
+        cost_df.to_csv(os.path.join(self.io_dir.outputs_dir, 'ES400_cost.csv'), index = False)
+        self.performance_logger.write_log()
