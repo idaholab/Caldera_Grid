@@ -153,7 +153,6 @@ class ES500_aux(typeA_control):
         #    Get Forecasts
         #---------------------
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
-        
         D_net_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
         D_net_kWh = [self.forecast_timestep_hrs*akW for akW in D_net_akW]
         
@@ -166,6 +165,8 @@ class ES500_aux(typeA_control):
         tmp_Caldera_state_info = {}
         tmp_Caldera_state_info[process_id] = Caldera_state_info_dict[Caldera_message_types.ES500_get_charging_needs]
         
+        '''
+        print("ES500 fed: starting solve")
         self.aggregator_obj.start_solving(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)
         
         tmp_Caldera_control_info = None
@@ -176,13 +177,13 @@ class ES500_aux(typeA_control):
                 time.sleep(self.aggregator_poll_time_sec)
             else:
                 break
+        '''
         
         #-----------------------------
         
-        self.pev_energy = tmp_Caldera_control_info  # Needed to log data
-        
+        self.pev_energy = self.aggregator_obj.start_solving_v2(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)  # Needed to log data
         Caldera_control_info_dict = {}
-        Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = tmp_Caldera_control_info[process_id]
+        Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = self.pev_energy[process_id]
         
         DSS_control_info_dict = {}
         

@@ -15,6 +15,7 @@ import numpy as np
 
 from ES500_Aggregator_Helper import ES500_aggregator_helper
 from Caldera_globals import ES500_charge_cycling_control_boundary_point
+import pandas as pd
 
 #=================================================================================
 #                               Helper Functions
@@ -97,16 +98,16 @@ class ES500_aggregator:
             charge_cycling_control_boundary.append(ES500_charge_cycling_control_boundary_point(cycling_magnitude, cycling_vs_ramping))
         
         # ES500_aggregator_parameters__solve_optimization_model
-        objective_function_ = solve_optimization_model.objective_function_
-        pickle_protocol = solve_optimization_model.pickle_protocol
-        cvxopt_show_progress = solve_optimization_model.cvxopt_show_progress
-        opt_solver_iteration_values = solve_optimization_model.opt_solver_iteration_values        
-        calc_obj_fun_constraints_depart_time_adjustment_sec = solve_optimization_model.calc_obj_fun_constraints_depart_time_adjustment_sec
+        self.objective_function_ = solve_optimization_model.objective_function_
+        self.pickle_protocol = solve_optimization_model.pickle_protocol
+        self.cvxopt_show_progress = solve_optimization_model.cvxopt_show_progress
+        self.opt_solver_iteration_values = solve_optimization_model.opt_solver_iteration_values        
+        self.calc_obj_fun_constraints_depart_time_adjustment_sec = solve_optimization_model.calc_obj_fun_constraints_depart_time_adjustment_sec
         
         #=====================================
         
-        self.aggregator_helper = ES500_aggregator_helper(aggregator_timestep_mins, data_lead_time_secs, num_agg_time_steps_in_prediction_horizon, charge_flexibility_threshold, num_pevs_to_start_charging_each_controlled_cycle_iteration, max_number_of_controlled_cycle_iterations, calc_obj_fun_constraints_depart_time_adjustment_sec, charge_cycling_control_boundary)
-        self.opt_solver_manager = optimization_solver_manager(num_agg_time_steps_in_prediction_horizon, self.feeder_step_energy_limit_kWh, objective_function_, pickle_protocol, cvxopt_show_progress, opt_solver_iteration_values)
+        self.aggregator_helper = ES500_aggregator_helper(aggregator_timestep_mins, data_lead_time_secs, num_agg_time_steps_in_prediction_horizon, charge_flexibility_threshold, num_pevs_to_start_charging_each_controlled_cycle_iteration, max_number_of_controlled_cycle_iterations, self.calc_obj_fun_constraints_depart_time_adjustment_sec, charge_cycling_control_boundary)
+        self.opt_solver_manager = optimization_solver_manager(num_agg_time_steps_in_prediction_horizon, self.feeder_step_energy_limit_kWh, self.objective_function_, self.pickle_protocol, self.cvxopt_show_progress, self.opt_solver_iteration_values)
 
 
     def get_stop_charge_cycling_decision_params(self):
@@ -122,8 +123,128 @@ class ES500_aggregator:
         
         return (optimization_model_vals, optimization_solver_log)
     
+    def __add_line_to_SolverInfo_log(self, outcome, iteration_execution_time_sec, obj_function_value, solution_status, relative_gap, next_aggregator_timestep_start_time):
+        if obj_function_value == None: obj_function_value = ''
+        if solution_status == None: solution_status = ''
+        if relative_gap == None: relative_gap = ''
+        if iteration_execution_time_sec == None: iteration_execution_time_sec = ''
+        
+        iteration_index = self.iteration_index - 1
+                
+        tmp_msg = '{}, {}, '.format(next_aggregator_timestep_start_time, next_aggregator_timestep_start_time/3600) #convert_time_to_string(next_aggregator_timestep_start_time))
+        tmp_msg += '{}, {}, {}, {}, {}, {}, '.format(iteration_index, outcome, iteration_execution_time_sec, obj_function_value, relative_gap, solution_status) 
+                
+        (w_LB, w_UB, cvxopt__max_relative_gap, iteration_timeout_sec, optimization_solver_) = self.opt_solver_iteration_values[iteration_index]
+            
+        if cvxopt__max_relative_gap == None: cvxopt__max_relative_gap = ''
+        if optimization_solver_ == ES500_optimization_solver.cvxopt:
+            opt_solver = 'cvxopt'
+        else:
+            opt_solver = 'cplex'
+            
+        tmp_msg += '{}, {}, {}, {}, {}'.format(opt_solver, iteration_timeout_sec, cvxopt__max_relative_gap, w_LB, w_UB)
+        
+        self.SolverInfo_log.append(tmp_msg)
+
+    def start_solving_v2(self, next_aggregator_timestep_start_time, charge_needs_dict, charge_forecast, D_net_kWh):
+        
+        self.SolverInfo_log = []
+        self.E_step_kWh_log_vals = []
+
+        self.aggregator_helper.load_charging_forecast(charge_forecast)
+        self.aggregator_helper.load_charging_needs(charge_needs_dict)
+        
+        obj_fun_constraints = self.aggregator_helper.get_obj_fun_constraints(next_aggregator_timestep_start_time)
+        self.canSolve_aka_pev_charging_in_prediction_window = obj_fun_constraints.canSolve_aka_pev_charging_in_prediction_window
+        
+        E_step_kWh_0 = None
+        if self.canSolve_aka_pev_charging_in_prediction_window:
+        
+            E_cumEnrgy_ALAP_kWh = obj_fun_constraints.E_cumEnergy_ALAP_kWh
+            E_cumEnrgy_ASAP_kWh = obj_fun_constraints.E_cumEnergy_ASAP_kWh
+            E_step_ALAP = obj_fun_constraints.E_step_ALAP
+            
+            K = len(E_cumEnrgy_ALAP_kWh)
+            E_step_UB_kWh = [0 for k in range(K)]
+            E_step_LB_kWh = [0 for k in range(K)]
+
+            key_val = int(next_aggregator_timestep_start_time)
+            
+            self.optimization_model_vals_dict[key_val] = {}
+            
+            self.optimization_model_vals_dict[key_val]["E_cumEnergy_ALAP_kWh"] = obj_fun_constraints.E_cumEnergy_ALAP_kWh
+            self.optimization_model_vals_dict[key_val]["E_cumEnergy_ASAP_kWh"] = obj_fun_constraints.E_cumEnergy_ASAP_kWh
+            self.optimization_model_vals_dict[key_val]["E_energy_ALAP_kWh"] = obj_fun_constraints.E_energy_ALAP_kWh
+            self.optimization_model_vals_dict[key_val]["E_energy_ASAP_kWh"] = obj_fun_constraints.E_energy_ASAP_kWh
+            self.optimization_model_vals_dict[key_val]["E_step_ALAP"] = obj_fun_constraints.E_step_ALAP
+            self.optimization_model_vals_dict[key_val]["D_net_kWh"] = D_net_kWh
+            self.optimization_model_vals_dict[key_val]["feeder_step_energy_limit_kWh"] = self.feeder_step_energy_limit_kWh
+
+            self.iteration_index = 0
+
+            for (w_LB, w_UB, cvxopt__max_relative_gap, iteration_timeout_sec, optimization_solver_) in self.opt_solver_iteration_values:
+                
+                for k in range(K):
+                    E_step_UB_kWh[k] = w_UB*E_step_ALAP[k]
+                    E_step_LB_kWh[k] = w_LB*E_step_ALAP[k]
+
+                if self.cvxopt_show_progress:
+                    print('iteration_index:{} '.format(self.iteration_index))
+
+                iteration_start_time = time.time()
+            
+                inputs_array = (self.objective_function_, optimization_solver_, cvxopt__max_relative_gap, self.cvxopt_show_progress)
+                constraints_array = (E_step_UB_kWh, E_step_LB_kWh, E_cumEnrgy_ASAP_kWh, E_cumEnrgy_ALAP_kWh, D_net_kWh, self.feeder_step_energy_limit_kWh)
+        
+                solver_obj = solve_objective_function()
+                solver_obj.set_inputs(inputs_array, constraints_array)
+
+                (total_opt_solver_execution_time_sec, opt_solver_execution_time_sec, is_valid_solution, solution_status, relative_gap, obj_function_value, E_step_kWh) = solver_obj.solve()
+                
+                iteration_execution_time_sec = time.time() - iteration_start_time
+
+                if is_valid_solution:
+                    E_step_kWh_0 = E_step_kWh[0]
+                    self.__add_line_to_SolverInfo_log('01_Solved', iteration_execution_time_sec, obj_function_value,  solution_status, relative_gap, next_aggregator_timestep_start_time)
+                    self.E_step_kWh_log_vals = E_step_kWh
+                    break
+
+                else:
+                    self.__add_line_to_SolverInfo_log('03_Solution_NOT_Found', iteration_execution_time_sec, obj_function_value,  solution_status, relative_gap, next_aggregator_timestep_start_time)
+                    self.E_step_kWh_log_vals = []
+                    print("ES500 Warning!!!!: Solver cannot solve at time", next_aggregator_timestep_start_time)
+                    E_step_kWh_0 = None
+                    self.iteration_index += 1
+        
+                    continue
+
+        pev_energy = None
+            
+        if E_step_kWh_0 != None:
+            #(E_step_kWh_log_, SolverInfo_log_) = self.opt_solver_manager.get_log_data()
+                
+            key_val = int(next_aggregator_timestep_start_time)
+            self.optimization_model_vals_dict[key_val]["E_step_kWh"] = self.E_step_kWh_log_vals
+            self.optimization_solver_log.extend(self.SolverInfo_log)
+                
+            pev_energy = self.aggregator_helper.allocate_energy_to_PEVs(next_aggregator_timestep_start_time, self.E_step_0_multiplier*E_step_kWh_0)
+            self.optimization_model_vals_dict[key_val]["E_residual_kWh"] = self.aggregator_helper.get_E_residual_kWh()
+        else:
+            X = '{}, {}, '.format(next_aggregator_timestep_start_time, next_aggregator_timestep_start_time/3600)
+            X += ', 00_No_PEV_Charging_During_Prediction_Horizon,,,,,,,,,'
+            self.optimization_solver_log.append(X)
+            
+            E_step_kWh_0 = 0
+            pev_energy = self.aggregator_helper.allocate_energy_to_PEVs(next_aggregator_timestep_start_time, E_step_kWh_0)
+               
+        #------------------------------
     
+        return pev_energy
+    
+        
     def start_solving(self, next_aggregator_timestep_start_time, charge_needs_dict, charge_forecast, D_net_kWh):
+
+
         self.aggregator_helper.load_charging_forecast(charge_forecast)
         self.aggregator_helper.load_charging_needs(charge_needs_dict)
         
@@ -131,6 +252,7 @@ class ES500_aggregator:
         self.canSolve_aka_pev_charging_in_prediction_window = obj_fun_constraints.canSolve_aka_pev_charging_in_prediction_window
         
         if self.canSolve_aka_pev_charging_in_prediction_window:
+            print("ES500 agg: start_solving")
             self.opt_solver_manager.start_solving_obj_fun(obj_fun_constraints, D_net_kWh)
             
             #------------------------------
@@ -430,6 +552,7 @@ def pickle_and_write_mmap_data_OSP(data, mmap_object, pickle_protocol):
 class solve_objective_function:
 
     def __init__(self):
+        #self.i = 0 
         pass
                                        
         
@@ -444,6 +567,16 @@ class solve_objective_function:
         (objective_function_, optimization_solver_, cvxopt__max_relative_gap, cvxopt_show_progress) = self.inputs_array
         (E_step_UB_kWh, E_step_LB_kWh, E_cum_energy_ASAP_kWh, E_cum_energy_ALAP_kWh, D_net_kWh, feeder_step_energy_limit_kWh) = self.constraints_array
         
+        #df = pd.DataFrame()
+        #df["E_step_UB_kWh"] = E_step_UB_kWh 
+        #df["E_step_LB_kWh"] = E_step_LB_kWh 
+        #df["E_cum_energy_ASAP_kWh"] = E_cum_energy_ASAP_kWh 
+        #df["E_cum_energy_ALAP_kWh"] = E_cum_energy_ALAP_kWh 
+        #df["D_net_kWh"] = D_net_kWh
+        #df["feeder_step_energy_limit_kWh"] = feeder_step_energy_limit_kWh
+        
+        #df.to_csv("ES500_{}.csv".format(self.i), index = False)
+        self.i += 1
         #-----------------------------------------------
         
         num_time_steps = len(E_step_UB_kWh)
