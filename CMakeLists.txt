@@ -33,9 +33,10 @@ if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/Caldera_ICM/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
-
-# Set installation dir
-SET(INSTALL_DIR ${PROJECT_SOURCE_DIR}/libs)
+if (NOT DEFINED INSTALL_DIR)
+    # Set installation dir
+    SET(INSTALL_DIR ${PROJECT_SOURCE_DIR}/libs)
+endif()
 
 # Add subdirs to compile the necessary binaries
 add_subdirectory(source/ES500)
