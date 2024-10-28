@@ -15,4 +15,4 @@ target_include_directories(ES500_Aggregator_Helper PUBLIC ${GLOBALS_DIR})
 target_include_directories(ES500_Aggregator_Helper PUBLIC ${CHARGING_MODELS_DIR})
 
 install(TARGETS ES500_Aggregator_Helper
-		DESTINATION ${PROJECT_SOURCE_DIR}/libs)
+		DESTINATION ${INSTALL_DIR})
