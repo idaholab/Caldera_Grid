@@ -79,7 +79,7 @@ class charge_controller:
             constuctor initializes the charge controller, allocates the controller_2Darr that maintains the status of charge events being controlled.
         '''
         
-        self.debug_plot = True
+        self.debug_plot = False
         self.plots = set()
         self.input_folder = charge_controller_input.io_dir.inputs_dir
         self.figures_folder = charge_controller_input.io_dir.figures_dir
