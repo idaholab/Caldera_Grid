@@ -80,10 +80,14 @@ class ES500_aux(typeA_control):
             
         elif ES500_params['objective_function'] == 'minimize_delta_pev_load':
             objective_function = ES500_objective_function.minimize_delta_pev_load
+        
+        elif ES500_params['objective_function'] == 'maximize_renewables':
+            objective_function = ES500_objective_function.maximize_renewables
             
         else:
             objective_function = ES500_objective_function.minimize_load
         
+        print(objective_function)
         solve_optimization_model_params.ES500_objective_function = objective_function
         
         opt_solver_iteration_values = []

@@ -1496,7 +1496,7 @@ class load_ES500_parameters:
         
         objective_function = parameters_dict['objective_function']
         
-        if objective_function not in('minimize_load', 'minimize_delta_load', 'minimize_delta_pev_load'):
+        if objective_function not in('minimize_load', 'minimize_delta_load', 'minimize_delta_pev_load', 'maximize_renewables'):
             line_number = valid_parameter_name_to_line_number_map['objective_function']
             errors.append('{}, objective_function must be one of the following: (minimize_load; minimize_delta_load; minimize_delta_pev_load).'.format(line_number))
         
