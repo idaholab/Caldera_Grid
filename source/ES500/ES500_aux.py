@@ -74,6 +74,9 @@ class ES500_aux(typeA_control):
         
         if ES500_params['objective_function'] == 'minimize_delta_load':
             objective_function = ES500_objective_function.minimize_delta_load
+        
+        elif ES500_params['objective_function'] == 'maximize_renewables':
+            objective_function = ES500_objective_function.maximize_renewables
             
         elif ES500_params['objective_function'] == 'minimize_delta_pev_load':
             objective_function = ES500_objective_function.minimize_delta_pev_load
@@ -186,7 +189,7 @@ class ES500_aux(typeA_control):
         Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = self.pev_energy[process_id]
         
         DSS_control_info_dict = {}
-        
+
         # Caldera_control_info_dict must be a dictionary with Caldera_message_types as keys.
         # DSS_control_info_dict must be a dictionary with OpenDSS_message_types as keys.
         # If either value has nothing to return, return an empty dictionary.

@@ -39,6 +39,7 @@ class ES500_objective_function(Enum):
      minimize_load = 1
      minimize_delta_load = 2
      minimize_delta_pev_load = 3
+     maximize_renewables = 4
 
 
 class ES500_optimization_solver(Enum):
@@ -108,7 +109,7 @@ class ES500_aggregator:
         
         self.aggregator_helper = ES500_aggregator_helper(aggregator_timestep_mins, data_lead_time_secs, num_agg_time_steps_in_prediction_horizon, charge_flexibility_threshold, num_pevs_to_start_charging_each_controlled_cycle_iteration, max_number_of_controlled_cycle_iterations, self.calc_obj_fun_constraints_depart_time_adjustment_sec, charge_cycling_control_boundary)
         self.opt_solver_manager = optimization_solver_manager(num_agg_time_steps_in_prediction_horizon, self.feeder_step_energy_limit_kWh, self.objective_function_, self.pickle_protocol, self.cvxopt_show_progress, self.opt_solver_iteration_values)
-
+        
 
     def get_stop_charge_cycling_decision_params(self):
         return self.aggregator_helper.get_stop_charge_cycling_decision_parameters()
@@ -240,7 +241,7 @@ class ES500_aggregator:
         #------------------------------
     
         return pev_energy
-    
+
         
     def start_solving(self, next_aggregator_timestep_start_time, charge_needs_dict, charge_forecast, D_net_kWh):
 
@@ -605,7 +606,10 @@ class solve_objective_function:
         else:        
             if objective_function_ == ES500_objective_function.minimize_load:
                 value = sum([(E_step_kWh[i]+D_net_kWh[i])**2 for i in range(len(E_step_kWh))])
-                
+
+            if objective_function_ == ES500_objective_function.maximize_renewables:
+                value = sum([(E_step_kWh[i]+D_net_kWh[i])**2 for i in range(len(E_step_kWh))])    
+
             elif objective_function_ == ES500_objective_function.minimize_delta_load:
                 value = sum([(E_step_kWh[i+1]-E_step_kWh[i]+D_net_kWh[i+1]-D_net_kWh[i])**2 for i in range(0,len(E_step_kWh)-1)])
                 
@@ -701,7 +705,10 @@ class solve_objective_function:
         if objective_function_ == ES500_objective_function.minimize_load:
             P = 2*np.identity(K)
             q = 2*np.array([D_net_kWh]).T
-            #q = 10000*np.array([D_net_kWh]).T
+            
+        elif objective_function_ == ES500_objective_function.maximize_renewables:
+            P = 2*np.identity(K)
+            q = -2*np.array([D_net_kWh]).T
             
         elif objective_function_ in(ES500_objective_function.minimize_delta_load, ES500_objective_function.minimize_delta_pev_load):
             singlerow = np.zeros((1,K))
