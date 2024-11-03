@@ -99,7 +99,7 @@ class ES500_aggregator:
             charge_cycling_control_boundary.append(ES500_charge_cycling_control_boundary_point(cycling_magnitude, cycling_vs_ramping))
         
         # ES500_aggregator_parameters__solve_optimization_model
-        self.objective_function_ = solve_optimization_model.objective_function_
+        self.objective_function_ = solve_optimization_model.ES500_objective_function
         self.pickle_protocol = solve_optimization_model.pickle_protocol
         self.cvxopt_show_progress = solve_optimization_model.cvxopt_show_progress
         self.opt_solver_iteration_values = solve_optimization_model.opt_solver_iteration_values        
