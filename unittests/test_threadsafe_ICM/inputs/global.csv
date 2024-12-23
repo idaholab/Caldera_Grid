@@ -1,0 +1,3 @@
+Key,Value,Description
+feeder_power_limit_kW,1.00E+12,
+base_load_forecast_adjust_interval_hrs,5,
