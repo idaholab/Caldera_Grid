@@ -133,6 +133,7 @@ class load_input_files:
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES110)
         #self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES200)
         #self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES300)
+        self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES400)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.ES500)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.VS100)
         self.L2_control_strategies_to_include.append(L2_control_strategies_enum.VS200_A)
@@ -178,6 +179,7 @@ class load_input_files:
         if L2_control_strategies_enum.ES110   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES110*.csv'))
         if L2_control_strategies_enum.ES200   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES200*.csv'))
         if L2_control_strategies_enum.ES300   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES300*.csv'))
+        if L2_control_strategies_enum.ES400   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES400*.csv'))
         if L2_control_strategies_enum.ES500   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'ES500*.csv'))
         if L2_control_strategies_enum.VS100   in self.L2_control_strategies_to_include: X.append((parameters_dir, 'VS100*.csv'))
         if L2_control_strategies_enum.VS200_A in self.L2_control_strategies_to_include: X.append((parameters_dir, 'VS200-A*.csv'))
@@ -218,6 +220,7 @@ class load_input_files:
             if L2_control_strategies_enum.ES110   in self.L2_control_strategies_to_include: filepaths.ES110   = Y[i]; i += 1
             if L2_control_strategies_enum.ES200   in self.L2_control_strategies_to_include: filepaths.ES200   = Y[i]; i += 1
             if L2_control_strategies_enum.ES300   in self.L2_control_strategies_to_include: filepaths.ES300   = Y[i]; i += 1
+            if L2_control_strategies_enum.ES400   in self.L2_control_strategies_to_include: filepaths.ES400   = Y[i]; i += 1
             if L2_control_strategies_enum.ES500   in self.L2_control_strategies_to_include: filepaths.ES500   = Y[i]; i += 1
             if L2_control_strategies_enum.VS100   in self.L2_control_strategies_to_include: filepaths.VS100   = Y[i]; i += 1
             if L2_control_strategies_enum.VS200_A in self.L2_control_strategies_to_include: filepaths.VS200_A = Y[i]; i += 1
@@ -283,6 +286,10 @@ class load_input_files:
             elif x_enum == L2_control_strategies_enum.ES300:
                 X = load_ES300_parameters(filepaths.ES300)
                 load_parameters.append( (x_enum, X) )
+            
+            elif x_enum == L2_control_strategies_enum.ES400:
+                X = load_ES400_parameters(filepaths.ES400)
+                load_parameters.append( (x_enum, X) )
                 
             elif x_enum == L2_control_strategies_enum.ES500:
                 X = load_ES500_parameters(filepaths.ES500)
@@ -318,7 +325,7 @@ class load_input_files:
         
         for (x_enum, load_parameters_obj) in load_parameters:
             (is_success, parameters_dict) = load_parameters_obj.load()
-        
+            
             if is_success:
                 control_strategy_parameters_dict[x_enum] = parameters_dict
             else:
@@ -1338,6 +1345,68 @@ class load_ES300_parameters:
 
 
 #===============================
+#  Load ES400 Parameters
+#===============================
+
+class load_ES400_parameters:
+
+    def __init__(self, file_path_):
+        self.file_path = file_path_
+
+        self.meta_data_info = {}
+        self.meta_data_info['str'] = {}
+        self.meta_data_info['bool'] = {}   
+        self.meta_data_info['int'] = {}
+        self.meta_data_info['double'] = {}
+        self.meta_data_info['list_of_tuples_dd'] = {}
+        self.meta_data_info['dict_of_string_keys_double_vals'] = {}
+        self.meta_data_info['dict_of_string_keys_string_vals'] = {}
+        self.meta_data_info['list_of_3ples_StrStrStr'] = {}
+        
+        self.meta_data_info['bool'] = {
+            'communication' : None
+            }
+
+        self.meta_data_info['int'] = {
+            'controller_timestep_mins' : None, 
+            'controller_forecast_horizon_hrs' : None
+        }
+
+        
+        self.processor_obj = parameters_file_processor(self.meta_data_info)
+    
+    
+    def __parameter_file_specific_checks(self, parameters_dict, valid_parameter_name_to_line_number_map):
+        conversion_obj = data_conversion_and_validation()
+        errors = []
+        
+        #------------------
+        
+        return errors
+    
+    
+    def load(self):
+        (errors, parameters_dict, valid_parameter_name_to_line_number_map) = self.processor_obj.validate(self.file_path)
+        
+        if len(errors) > 0:
+            print_errors_file(self.file_path, errors)
+            return (False, None)  #(is_successful, parameters_dict)
+        
+        #------------------------------------------
+        #      Parameter File Specific Checks
+        #------------------------------------------
+        errors += self.__parameter_file_specific_checks(parameters_dict, valid_parameter_name_to_line_number_map)
+            
+        if len(errors) > 0:
+            print_errors_file(self.file_path, errors)
+            return (False, None)  #(is_successful, parameters_dict)
+        
+        #========================================
+        
+        return (True, parameters_dict)   #(is_successful, parameters_dict)
+
+
+#===============================
 #  Load ES500 Parameters
 #===============================
 
@@ -1427,7 +1496,7 @@ class load_ES500_parameters:
         
         objective_function = parameters_dict['objective_function']
         
-        if objective_function not in('minimize_load', 'minimize_delta_load', 'minimize_delta_pev_load'):
+        if objective_function not in('minimize_load', 'minimize_delta_load', 'minimize_delta_pev_load', 'maximize_renewables'):
             line_number = valid_parameter_name_to_line_number_map['objective_function']
             errors.append('{}, objective_function must be one of the following: (minimize_load; minimize_delta_load; minimize_delta_pev_load).'.format(line_number))
         

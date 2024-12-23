@@ -1,0 +1,9 @@
+# Base input files from which other inputs are created
+*
+#good_forecast
+#bad_forecast
+#time_of_use
+
+#uncontrolled/CE_*.csv
+#uncontrolled/SE_*.csv
+#uncontrolled/error*

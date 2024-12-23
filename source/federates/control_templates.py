@@ -66,6 +66,8 @@ class typeA_control:
     def solve(self, next_control_timestep_start_unix_time, Caldera_state_info, DSS_state_info):
         raise NotImplementedError('A child class of typeA_control has not implemented: solve()')
 
+    def cleanup_this_federate(self):
+        pass
 
 class typeB_control:
 
@@ -98,3 +100,6 @@ class typeB_control:
    
     def solve(self, current_simulation_unix_time, Caldera_state_info, DSS_state_info):
         raise NotImplementedError('A child class of typeB_control has not implemented: solve()')
+
+    def cleanup_this_federate(self):
+        pass

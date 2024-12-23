@@ -31,6 +31,10 @@ class ES500_aux(typeA_control):
     
     
     def initialize(self):
+        
+        # For measuring time between calls to "solve"
+        self.between_solves_time = time.time()
+        
         SE_CE_data_obj = self.datasets_dict[input_datasets.SE_CE_data_obj]
         baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         global_parameters = self.datasets_dict[input_datasets.Caldera_global_parameters]
@@ -74,13 +78,19 @@ class ES500_aux(typeA_control):
         
         if ES500_params['objective_function'] == 'minimize_delta_load':
             objective_function = ES500_objective_function.minimize_delta_load
+        
+        elif ES500_params['objective_function'] == 'maximize_renewables':
+            objective_function = ES500_objective_function.maximize_renewables
             
         elif ES500_params['objective_function'] == 'minimize_delta_pev_load':
             objective_function = ES500_objective_function.minimize_delta_pev_load
+        
+        elif ES500_params['objective_function'] == 'maximize_renewables':
+            objective_function = ES500_objective_function.maximize_renewables
             
         else:
             objective_function = ES500_objective_function.minimize_load
-        
+                
         solve_optimization_model_params.ES500_objective_function = objective_function
         
         opt_solver_iteration_values = []
@@ -149,23 +159,30 @@ class ES500_aux(typeA_control):
         # Caldera_state_info_dict is a dictionary with Caldera_message_types as keys.
         # DSS_state_info_dict is a dictionary with OpenDSS_message_types as keys. 
         
+        time_since_last_call = time.time() - self.between_solves_time
+        
         #---------------------
         #    Get Forecasts
         #---------------------
+        time00 = time.time()
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
-        
         D_net_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
         D_net_kWh = [self.forecast_timestep_hrs*akW for akW in D_net_akW]
         
         CE_forecast = self.CE_forecaster.get_forecast(next_aggregator_start_unix_time)
+        time01 = time.time()
         
         #-----------------------------
         # Calculate Optimal Solution
         #-----------------------------
+        time02 = time.time()
         process_id = '1'
         tmp_Caldera_state_info = {}
         tmp_Caldera_state_info[process_id] = Caldera_state_info_dict[Caldera_message_types.ES500_get_charging_needs]
+        time03 = time.time()
         
+        '''
+        print("ES500 fed: starting solve")
         self.aggregator_obj.start_solving(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)
         
         tmp_Caldera_control_info = None
@@ -176,16 +193,34 @@ class ES500_aux(typeA_control):
                 time.sleep(self.aggregator_poll_time_sec)
             else:
                 break
+        '''
         
         #-----------------------------
         
-        self.pev_energy = tmp_Caldera_control_info  # Needed to log data
-        
+        time04 = time.time()
+        self.pev_energy = self.aggregator_obj.start_solving_v2(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)  # Needed to log data
         Caldera_control_info_dict = {}
-        Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = tmp_Caldera_control_info[process_id]
+        Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = self.pev_energy[process_id]
         
         DSS_control_info_dict = {}
+        time05 = time.time()
+
+        print("flag1")
+        print("   time_since_last_call: ",time_since_last_call)
+        print("   time00: ",time00 )
+        print("   time01: ",time01 )
+        print("   time02: ",time02 )
+        print("   time03: ",time03 )
+        print("   time04: ",time04 )
+        print("   time05: ",time05 )
+        print("   time01-time00: ", time01-time00 )
+        print("   time03-time02: ", time03-time02 )
+        print("   time05-time04: ", time05-time04 )
+        print("   time05-time00: ", time05-time00 )
         
+        # Start measuring time to the next call of this function.
+        self.between_solves_time = time.time()
+
         # Caldera_control_info_dict must be a dictionary with Caldera_message_types as keys.
         # DSS_control_info_dict must be a dictionary with OpenDSS_message_types as keys.
         # If either value has nothing to return, return an empty dictionary.

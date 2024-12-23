@@ -1,0 +1,25 @@
+{
+	"name":"Load_Input_Files",
+	"coreName":"Load_Input_Files_core",
+	"coretype":"zmq",
+	"coreInit":"--federates=1",
+	"period": 0.01,
+	"uninterruptible":false,
+	
+	"endpoints":
+	[
+		{
+			"name":"input_datasets_endpoint",
+			"global":false
+		}
+	],
+    "publications": 
+    [
+        {
+          "key": "data_loaded", 
+          "type": "bool",
+          "global": false
+        }
+    ]
+}
+

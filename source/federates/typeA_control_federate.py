@@ -188,5 +188,7 @@ def typeA_control_federate(io_dir, json_config_file_name, simulation_time_constr
     #=====================================
     #         Terminate Federate
     #=====================================
+    control_obj.cleanup_this_federate()
+
     cleanup(fed)
     print('{} Federate Terminated.'.format(federate_name))
