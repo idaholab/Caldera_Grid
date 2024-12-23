@@ -1,0 +1,45 @@
+General Params:
+
+1. data_lead_time_secs/charging_needs_lead_time_sec: 550 secs/ 9.16 mins
+	- if control is applied for time 900 s or 15 mins, the controller needs data at 350s or 5.83 mins
+
+2. prediction_horizon_duration_hrs: 24
+	- The controller can predict over a 24 hour period
+
+3. feeder_step_energy_limit_kWh
+	- The is a max feeder limit say 500kWh. The canotroller cannot allocate any more EV charging on that feeder.
+
+allocate_energy_to_PEVs_params:
+
+1. charge_flexibility_threshold :  0.1
+	- Unknown
+2. num_pevs_to_start_charging_each_controlled_cycle_iteration : 2
+	- in each solver iteration number of EVs to charge.
+3. max_number_of_controlled_cycle_iterations: 5000
+	- Total number of iterations per solve, so at max controller can charge 10K vehicles.
+4. charge_cycling_control_boundary : 0.05|1  ;  0.07|0.2  ;  0.11|0.11  ;  0.2|0.07  ;  1|  0.05  
+	- Unknown
+5. E_step_0_multiplier : 1.05
+	- I guess it allocates a little extra energy
+
+solve_optimization_model_params:
+1. cvxopt_show_progress : False
+	- boolean to print out progress
+2. calc_obj_fun_constraints_depart_time_adjustment_sec : 90
+	- unknown
+3. ES500_objective_function
+	1. minimize_delta_load
+	2. minimize_delta_pev_load
+	3. minimize_load
+4. opt_solver_iteration_values : [[0, 1, cvxopt__max_relative_gap, iteration_timeout_sec, ES500_optimization_solver.cvxopt], ...]
+	- Unknown
+
+ES500_aggregator:
+	- TODO
+
+ES500_Aggregator_charging_needs_forecast:
+	- TODO
+
+Baseload forecaster:
+1. adjustment_interval_hours : 5 hours
+	- Beyond 5 hours use the forecast data. Between 0 to 5 hours, use weighted combinatation of actual and forecast, closer to 0, actual has more weight, closer to 5, forecast has more weight.

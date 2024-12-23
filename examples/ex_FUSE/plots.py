@@ -22,9 +22,10 @@ sys.path.insert( index+1, os.path.join( caldera_grid_proj_dir, "./libs" ) )
 sys.path.insert( index+2, os.path.join( caldera_grid_proj_dir, "./source/base" ) )
 sys.path.insert( index+3, os.path.join( caldera_grid_proj_dir, "./source/custom_controls" ) )
 sys.path.insert( index+4, os.path.join( caldera_grid_proj_dir, "./source/ES500" ) )
+sys.path.insert( index+4, os.path.join( caldera_grid_proj_dir, "./source/ES400" ) )
 sys.path.insert( index+5, os.path.join( caldera_grid_proj_dir, "./source/federates" ) )
 
-from dynamic_price_control.cost_forecaster import TE_cost_forecaster_v3
+from cost_forecaster import TE_cost_forecaster_v3
 
 #----------------------------------
 
