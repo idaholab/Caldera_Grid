@@ -1,6 +1,7 @@
 
 import time
 import os
+import sys
 
 from ES500_Aggregator import ES500_aggregator_parameters__general, ES500_aggregator_parameters__solve_optimization_model, ES500_aggregator_parameters__allocate_energy_to_PEVs
 from ES500_Aggregator import ES500_aggregator, ES500_objective_function, ES500_optimization_solver
@@ -10,12 +11,20 @@ from Caldera_globals import L2_control_strategies_enum
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeA_control
 
+file_dir = os.path.dirname(os.path.abspath(__file__))
+index = 1
+sys.path.insert( index+0, os.path.join( file_dir, "..", "ES400" ) )
+
+from cost_forecaster import TE_cost_forecaster_v3
+import numpy as np
+
 
 class ES500_aux(typeA_control):
 
     def __init__(self, io_dir, simulation_time_constraints):        
         super().__init__(io_dir, simulation_time_constraints)
-    
+        
+        self.io_dir = io_dir
     
     def get_input_dataset_enum_list(self):
         return [input_datasets.SE_CE_data_obj, input_datasets.baseLD_data_obj, input_datasets.Caldera_L2_ES_strategies, input_datasets.Caldera_global_parameters, input_datasets.Caldera_control_strategy_parameters_dict]
@@ -108,6 +117,11 @@ class ES500_aux(typeA_control):
         self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(SE_CE_data_obj.SE_group_charge_events, SE_CE_data_obj.SEid_to_SE_type, ES500_params)
         
         #------------------------------
+        #     Create cost/generation Forecaster 
+        #------------------------------
+        self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.io_dir.inputs_dir, 'TE_inputs'), ".", False)
+
+        #------------------------------
         #   Create baseLD Forecaster
         #------------------------------
         data_start_unix_time = baseLD_data_obj.data_start_unix_time
@@ -166,8 +180,21 @@ class ES500_aux(typeA_control):
         #---------------------
         time00 = time.time()
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
-        D_net_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
-        D_net_kWh = [self.forecast_timestep_hrs*akW for akW in D_net_akW]
+        base_D_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
+        base_D_kWh = np.array([self.forecast_timestep_hrs*akW for akW in base_D_akW])
+
+        # data_id, current_time_sec, start_time_sec, end_time_sec, timestep_sec, debug
+        solar = self.cost_forecaster.get_adjusted_data_for_time_range( "solar", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False )
+        wind = self.cost_forecaster.get_adjusted_data_for_time_range( "solar", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False )
+        
+        #print("base_D_kWh", base_D_kWh)
+        #print("base_D_kWh.size()", len(base_D_kWh))
+        #print("solar.size()", len(solar))
+        #print("solar", solar)
+        #print("wind.size()", len(wind))
+        #print("wind", wind)        
+        
+        D_net_kWh = solar + wind - base_D_kWh
         
         CE_forecast = self.CE_forecaster.get_forecast(next_aggregator_start_unix_time)
         time01 = time.time()
@@ -205,6 +232,7 @@ class ES500_aux(typeA_control):
         DSS_control_info_dict = {}
         time05 = time.time()
 
+        '''
         print("flag1")
         print("   time_since_last_call: ",time_since_last_call)
         print("   time00: ",time00 )
@@ -217,7 +245,8 @@ class ES500_aux(typeA_control):
         print("   time03-time02: ", time03-time02 )
         print("   time05-time04: ", time05-time04 )
         print("   time05-time00: ", time05-time00 )
-        
+        '''
+
         # Start measuring time to the next call of this function.
         self.between_solves_time = time.time()
 
