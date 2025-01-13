@@ -1,0 +1,30 @@
+mkdir -p inputs/{half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}
+
+for subfolder in inputs/{half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}; do   
+    cp -r ~/repos/fuse_kansas_regional_analysis/sims/sim_fuse_kansas_oct2024/grid/inputs/uncontrolled/* "$subfolder"; 
+done
+
+for subfolder in {half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}; do   
+    cp "sandia_inputs/$subfolder/CE_ICM.csv" "inputs/$subfolder/";   
+    cp "sandia_inputs/$subfolder/SE_ICM.csv" "inputs/$subfolder/"; 
+done
+
+mkdir -p outputs/{half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}
+
+cp ~/repos/fuse_kansas_regional_analysis/sims/sim_fuse_kansas_oct2024/grid/run_hpc.sh .
+cp ~/repos/fuse_kansas_regional_analysis/sims/sim_fuse_kansas_oct2024/grid/start_execution.py .
+cp ~/repos/fuse_kansas_regional_analysis/sims/sim_fuse_kansas_oct2024/grid/start_exe_with_args.py .
+
+for subfolder in {half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}; do   
+    cp "baseLD_.csv" "inputs/$subfolder/"; 
+done
+
+
+for subfolder in {half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}; do   
+    mv "inputs/$subfolder/SE_ICM.csv" "inputs/$subfolder/OLD_SE_ICM.csv"; 
+done
+
+for subfolder in {half,immediate,scheduled}/{0p25mi,0p50mi,1p00mi}; do
+  qsub -v sim="$subfolder" run_hpc.sh
+done
+
