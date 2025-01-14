@@ -1,0 +1,4 @@
+Key,Value,Description
+communication,FALSE,If TRUE optimized charge profile is communicated to cost_forecaster. If FALSE optimized charge profile is not communicated to cost_forecaster
+controller_timestep_mins,15,Interval at which the controller acts in minutes
+controller_forecast_horizon_hrs,24,Maximum forecast horizon the controller can solve for in hours

@@ -179,7 +179,7 @@ def open_dss_federate(io_dir, json_config_file_name, simulation_time_constraints
         federate_time = h.helicsFederateRequestNextStep(fed)
         
         if abs(federate_time % 3600) < 0.8:
-            print("simulation_time_hrs: {}".format(federate_time/3600))
+            print("simulation_time_hrs: {}".format(federate_time/3600)+" out of {} hrs".format(end_simulation_unix_time/3600))
         
         if federate_time >= end_simulation_unix_time:
             break
