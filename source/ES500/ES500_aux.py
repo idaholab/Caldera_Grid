@@ -11,6 +11,8 @@ from Caldera_globals import L2_control_strategies_enum
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeA_control
 
+import pandas as pd
+
 file_dir = os.path.dirname(os.path.abspath(__file__))
 index = 1
 sys.path.insert( index+0, os.path.join( file_dir, "..", "ES400" ) )
@@ -86,21 +88,21 @@ class ES500_aux(typeA_control):
         solve_optimization_model_params.calc_obj_fun_constraints_depart_time_adjustment_sec = ES500_params['calc_obj_fun_constraints_depart_time_adjustment_sec']
         
         if ES500_params['objective_function'] == 'minimize_delta_load':
-            objective_function = ES500_objective_function.minimize_delta_load
+            self.objective_function = ES500_objective_function.minimize_delta_load
         
-        elif ES500_params['objective_function'] == 'maximize_renewables':
-            objective_function = ES500_objective_function.maximize_renewables
+        elif ES500_params['objective_function'] == 'minimize_load':
+            self.objective_function = ES500_objective_function.minimize_load
             
         elif ES500_params['objective_function'] == 'minimize_delta_pev_load':
-            objective_function = ES500_objective_function.minimize_delta_pev_load
+            self.objective_function = ES500_objective_function.minimize_delta_pev_load
         
         elif ES500_params['objective_function'] == 'maximize_renewables':
-            objective_function = ES500_objective_function.maximize_renewables
+            self.objective_function = ES500_objective_function.maximize_renewables
             
         else:
-            objective_function = ES500_objective_function.minimize_load
-                
-        solve_optimization_model_params.ES500_objective_function = objective_function
+            self.objective_function = ES500_objective_function.minimize_load
+        
+        solve_optimization_model_params.ES500_objective_function = self.objective_function
         
         opt_solver_iteration_values = []
         for (cvxopt__max_relative_gap, iteration_timeout_sec) in ES500_params['opt_solver_iteration_values']:
@@ -181,20 +183,29 @@ class ES500_aux(typeA_control):
         time00 = time.time()
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
         base_D_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
-        base_D_kWh = np.array([self.forecast_timestep_hrs*akW for akW in base_D_akW])
+        
+        if self.objective_function == ES500_objective_function.maximize_renewables:
 
-        # data_id, current_time_sec, start_time_sec, end_time_sec, timestep_sec, debug
-        solar = self.cost_forecaster.get_adjusted_data_for_time_range( "solar", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False )
-        wind = self.cost_forecaster.get_adjusted_data_for_time_range( "solar", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False )
+            if os.environ['SIM_SCALE'] == "full":
+                multiplier = 1000
+            elif os.environ['SIM_SCALE'] == "small":
+                multiplier = 1
+            else:
+                multiplier = 1000    # Run full simulation by default
+            
+            print("ES500:", os.environ['SIM_SCALE'])
+            # data_id, current_time_sec, start_time_sec, end_time_sec, timestep_sec, debug
+            solar_kW = self.cost_forecaster.get_raw_data_for_time_range( "solar", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
+            wind_kW = self.cost_forecaster.get_raw_data_for_time_range( "wind", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
+            nuclear_kW = self.cost_forecaster.get_raw_data_for_time_range( "nuclear", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
+            
+            D_net_kW = nuclear_kW + solar_kW + wind_kW - base_D_akW
+
+        else:
+            
+            D_net_kW = base_D_akW
         
-        #print("base_D_kWh", base_D_kWh)
-        #print("base_D_kWh.size()", len(base_D_kWh))
-        #print("solar.size()", len(solar))
-        #print("solar", solar)
-        #print("wind.size()", len(wind))
-        #print("wind", wind)        
-        
-        D_net_kWh = solar + wind - base_D_kWh
+        D_net_kWh =  np.array([self.forecast_timestep_hrs*akW for akW in D_net_kW])
         
         CE_forecast = self.CE_forecaster.get_forecast(next_aggregator_start_unix_time)
         time01 = time.time()
@@ -255,6 +266,21 @@ class ES500_aux(typeA_control):
         # If either value has nothing to return, return an empty dictionary.
         return (Caldera_control_info_dict, DSS_control_info_dict)
 
+
+    def cleanup_this_federate(self):
+        print("In cleanup_this_federate")
+
+        dem_gen_df = pd.DataFrame()
+        debug = True
+        dem_gen_df['time'] = np.arange(self.start_simulation_unix_time, self.end_simulation_unix_time, self.forecast_timestep_mins * 60)/3600.0
+        for data_id in ['demand', 'nuclear', 'solar', 'wind']:
+            dem_gen_df[data_id] = np.array(self.cost_forecaster.get_raw_data_for_time_range( data_id, 'actual', self.start_simulation_unix_time, self.start_simulation_unix_time, self.end_simulation_unix_time, self.forecast_timestep_mins * 60, debug).data)
+        
+        dem_gen_df["net_renewables"] = dem_gen_df['nuclear'] + dem_gen_df['solar'] + dem_gen_df['wind'] - dem_gen_df['demand']
+        
+        dem_gen_df.to_csv(os.path.join(self.io_dir.outputs_dir, 'ES500_demand_generation.csv'), index = False)
+
+        print("Done writing")
 
 
 class ES500_Aggregator_log_files:
