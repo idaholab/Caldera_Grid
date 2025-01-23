@@ -2,7 +2,7 @@
 
 Caldera and OpenDSS co-simulation platform using HELICS 
 
-## Ovrview
+## Overviews
 Caldera Grid enables modeling EV charging on the electric grid. Caldera Grid co-simulation platform is built using HELICS (Hierarchical Engine for Large Scale Infrastructure Co-simulation) and cosimulates Caldera ICM with OpenDSS. The platfrom also provides an interface to apply custom control strategies to EV charge events.
 
 
@@ -115,7 +115,7 @@ cd Caldera_Grid
 git switch develop
 mkdir build
 cd build
-cmake -DPROJECT=eMosaic -DICM=ON -DCMAKE_CXX_STANDARD=11 ../
+cmake -DPROJECT=eMosaic -DICM=ON ../
 make -j 4
 make install
 ```

@@ -1,0 +1,15 @@
+# Project Information
+site_name: 'Caldera Grid'
+site_description: 'Caldera Grid'
+
+
+# Navigation structure
+nav:
+  - Home: 'README.md'
+  
+
+
+
+
+# Other Configurations
+strict: true
