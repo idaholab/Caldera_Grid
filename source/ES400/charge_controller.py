@@ -230,6 +230,15 @@ class charge_controller:
         
         return PQ_setpoints
     
+    def get_aggregate_charge_profile(self, start_time_sec, end_time_sec):
+
+        start_time_idx = self.controller_data.get_indices_from_time_s([start_time_sec])[0]
+        end_time_idx = self.controller_data.get_indices_from_time_s([end_time_sec])[0]
+
+        plugin_profile = np.sum(self.controller_data.controller_2Darr[:, start_time_idx:end_time_idx], axis=0).astype(int)
+        power_profile_kW = plugin_profile * 10.58 # Assuming average charge rate of 10.58 kW
+
+        return power_profile_kW
 
     def __debug_plot(self, next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, cost_profile, active_charge_event):
         

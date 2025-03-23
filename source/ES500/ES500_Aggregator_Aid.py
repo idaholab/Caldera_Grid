@@ -5,6 +5,7 @@ from numpy import random
 from Caldera_globals import L2_control_strategies_enum
 from Caldera_globals import ES500_aggregator_charging_forecast
 from Caldera_ICM_Aux import get_value_from_normal_distribution
+import numpy as np
 
 
 class ES500_Aggregator_charging_needs_forecast:
@@ -41,7 +42,8 @@ class ES500_Aggregator_charging_needs_forecast:
         
         for X in SE_group_charge_events:
             for charge_event in X.charge_events:
-                if L2_control_strategies_enum.ES500 == charge_event.control_enums.ES_control_strategy:
+                
+                if (L2_control_strategies_enum.ES500 == charge_event.control_enums.ES_control_strategy) or (L2_control_strategies_enum.ES400 == charge_event.control_enums.ES_control_strategy):
                     arrival_unix_time = charge_event.arrival_unix_time + error_arrival_time_sec.get_value()
                     
                     park_duration_sec = charge_event.departure_unix_time - charge_event.arrival_unix_time
@@ -157,4 +159,34 @@ class ES500_Aggregator_charging_needs_forecast:
         return_val.e3_step_max_kWh = e3_step_max_kWh
         
         return return_val
+    
+    def get_forecast_for_ES400(self, unix_start_time):
+        CE_forecast = self.get_forecast(unix_start_time)
+
+        forecast_start_time = unix_start_time
+        forecast_end_time = unix_start_time + self.prediction_horizon_duration_sec
+        timestep_sec = 15*60
+        ASAP_profile_kW = np.zeros(int((forecast_end_time - forecast_start_time)/timestep_sec))
+
+        for i in range(len(CE_forecast.arrival_unix_time)):
+            arrival_unix_time = CE_forecast.arrival_unix_time[i]
+            departure_unix_time = CE_forecast.departure_unix_time[i]
+            e3_charge_remain_kWh = CE_forecast.e3_charge_remain_kWh[i]
+            e3_step_max_kWh = CE_forecast.e3_step_max_kWh[i]
+            avg_power_kW = 10.58
+            avg_kWh_per_step = avg_power_kW * 15/60
+
+            start_index = int((arrival_unix_time- forecast_start_time)/timestep_sec)
+            end_index = int((departure_unix_time- forecast_start_time)/timestep_sec)
+
+            energy_remain_kWh = e3_charge_remain_kWh
+            for idx in range(start_index, end_index):
+
+                if energy_remain_kWh > 0:
+                    ASAP_profile_kW[idx] += avg_power_kW            
+                    energy_remain_kWh =- avg_kWh_per_step
+                else:
+                    break
+
+        return ASAP_profile_kW
 
