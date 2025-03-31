@@ -117,9 +117,9 @@ from typeB_control_federate import typeB_control_federate
 from global_aux import container_class
 from ES500_aux import ES500_aux
 from get_customized_inputs import get_customized_pev_ramping
-from control_strategy_A import control_strategy_A
-from control_strategy_B import control_strategy_B
-from control_strategy_C import control_strategy_C
+#from control_strategy_A import control_strategy_A
+#from control_strategy_B import control_strategy_B
+from control_strategy_emosaic import control_strategy_emosaic
 
 #================================================
 
@@ -243,10 +243,9 @@ if __name__ == '__main__':
     num_of_federates += 1   # Caldera_ES500
     #num_of_federates += 1   # control_strategy_A
     #num_of_federates += 1   # control_strategy_B
-    #num_of_federates += 1   # control_strategy_C
+    num_of_federates += 1   # control_strategy_C
     
     broker = subprocess.Popen(['helics_broker', '--loglevel=no_print', '-f{}'.format(num_of_federates)])
-    #broker = subprocess.Popen(['helics_broker', '-f{}'.format(num_of_federates)])
     
     #---------------------
     
@@ -275,30 +274,14 @@ if __name__ == '__main__':
     ES500_obj = ES500_aux(io_dir, simulation_time_constraints)    
     p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, ES500_obj,), name="caldera_ES500_federate")
     processes.append(p)
-    
-    #-------------------------------
-    #   Control Strategy_A Federate
-    #-------------------------------
-    json_config_file_name = 'control_strategy_A.json'
-    CS_A_obj = control_strategy_A(io_dir, simulation_time_constraints)    
-    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_A_obj,), name="control_strategy_A_federate")
-    #processes.append(p)
-    
-    #-------------------------------
-    #   Control Strategy_B Federate
-    #-------------------------------
-    json_config_file_name = 'control_strategy_B.json'
-    CS_B_obj = control_strategy_B(io_dir, simulation_time_constraints)    
-    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_B_obj,), name="control_strategy_B_federate")
-    #processes.append(p)
-    
+
     #-------------------------------
     #   Control Strategy_C Federate
     #-------------------------------
-    json_config_file_name = 'control_strategy_C.json'
-    CS_C_obj = control_strategy_C(io_dir, simulation_time_constraints)
-    p = Process(target=typeB_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
-    #processes.append(p)
+    json_config_file_name = 'control_strategy_emosaic.json'
+    CS_C_obj = control_strategy_emosaic(io_dir, simulation_time_constraints)
+    p = Process(target=typeA_control_federate, args=(io_dir, json_config_file_name, simulation_time_constraints, CS_C_obj,), name="control_strategy_C_federate")
+    processes.append(p)
     
 
     for p in processes:
