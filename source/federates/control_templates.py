@@ -31,10 +31,13 @@ class typeA_control:
         Y = container_class()
         
         prev_control_timestep_start_unix_time = round(self.start_simulation_unix_time - (self.start_simulation_unix_time % control_timestep_sec))
-        Y.next_control_timestep_start_unix_time = 2*control_timestep_sec + prev_control_timestep_start_unix_time
+        Y.next_control_timestep_start_unix_time = 1*control_timestep_sec + prev_control_timestep_start_unix_time
         Y.next_request_state_unix_time = Y.next_control_timestep_start_unix_time - 60*X.request_state_lead_time_min
         Y.next_send_control_info_unix_time = Y.next_control_timestep_start_unix_time - 60*X.send_control_info_lead_time_min
         Y.control_timestep_sec = control_timestep_sec
+
+        if not Y.next_request_state_unix_time > self.start_simulation_unix_time:
+            raise ValueError('In control strategy {}, invalid request_state_lead_time_min. The following inequality must hold: (Y.next_request_state_unix_time > self.start_simulation_unix_time).'.format(control_strategy_name))
     
         self.initial_control_time_parameters = Y
     

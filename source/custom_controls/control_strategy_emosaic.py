@@ -15,8 +15,8 @@ class control_strategy_emosaic(typeA_control):
 
         self.io_dir = io_dir
         self.control_timestep_min = 60        
-        self.request_state_lead_time_min = 2
-        self.send_control_info_lead_time_min = 1
+        self.request_state_lead_time_min = 3
+        self.send_control_info_lead_time_min = 2
     
     def get_input_dataset_enum_list(self):
         return [input_datasets.SE_group_configuration, input_datasets.SE_group_charge_event_data, input_datasets.SEid_to_SE_type, input_datasets.charge_event_builder]
@@ -71,51 +71,41 @@ class control_strategy_emosaic(typeA_control):
         Caldera_control_info_dict = {}
         Caldera_control_info_dict[Caldera_message_types.add_charge_events] = []
         DSS_control_info_dict = {}
-        
-        print(current_simulation_unix_time/3600)
+
         hour = int(current_simulation_unix_time/3600)
-        print("hour:", hour)  
         pu_price = 0.8
-        '''
+        
         CEs_852 = self.agent.get_charge_events_to_add(pu_price, '852', hour)
         CEs_862 = self.agent.get_charge_events_to_add(pu_price, '862', hour)
 
         all_CEs = CEs_852 + CEs_862
 
         for CE in all_CEs:
-            
             errors, charge_event = self.datasets_dict[input_datasets.charge_event_builder].get_charge_event(
-                CE[0], 
-                CE[1], 
-                CE[2], 
-                CE[3], 
-                CE[4], 
-                CE[5], 
-                CE[6], 
-                CE[7], 
-                CE[8], 
-                CE[9])
-            
+                CE[0], # charge_event_id
+                CE[1], # SE_id
+                CE[2], # vehicle_type
+                CE[3], # start_time_hrs
+                CE[4], # end_time_hrs
+                CE[5]/100, # start_SOC
+                CE[6]/100, # end_SOC
+                CE[7], # ES_str
+                CE[8], # VS_str
+                "NA") # Ext_str
+
             if(len(errors) == 0):
+                print("charge_event_id:", charge_event.charge_event_id, "SE_id:", charge_event.SE_id, "vehicle_type:", charge_event.vehicle_type, "arrival_unix_time:", charge_event.arrival_unix_time/3600, "departure_unix_time:", charge_event.departure_unix_time/3600, "arrival_SOC:", charge_event.arrival_SOC, "departure_SOC:", charge_event.departure_SOC)
+                
                 Caldera_control_info_dict[Caldera_message_types.add_charge_events].append(charge_event)
             else:
                 for error in errors:
                     print(error)
-        #df2['charge_event_id'], 
-        #df2['SE_id'], 
-        #df2['pev_type'], 
-        #df2['start_time'], 
-        #df2['end_time_prk'], 
-        #df2['soc_i'], 
-        #df2['soc_f'], 
-        #df2['ES_strategy'], 
-        #df2['VS_strategy'], 
-        #df2['Ext_strategy'])
-        '''
+
+        print("len(Caldera_control_info_dict):", len(Caldera_control_info_dict))
             
-        errors, charge_event = self.datasets_dict[input_datasets.charge_event_builder].get_charge_event( hour, 11, 'ld_100kWh', hour+(10/60), hour+(50/60), 0.2, 0.8, 'NA','NA', 'NA')
+        #errors, charge_event = self.datasets_dict[input_datasets.charge_event_builder].get_charge_event( hour, 11, 'ld_100kWh', hour+(10/60), hour+(50/60), 0.2, 0.8, 'NA','NA', 'NA')
         
-        Caldera_control_info_dict[Caldera_message_types.add_charge_events].append(charge_event)
+        #Caldera_control_info_dict[Caldera_message_types.add_charge_events].append(charge_event)
 
         #node_voltages = DSS_state_info_dict[OpenDSS_message_types.get_all_node_voltages]
         #print(node_voltages.keys())

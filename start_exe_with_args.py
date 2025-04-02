@@ -7,8 +7,8 @@ path_to_here = os.path.abspath(os.path.dirname(sys.argv[0]))
 path_to_libs = os.path.join( path_to_here, "./" )
 input_directory = os.path.join( path_to_here, "inputs/" )
 output_directory = os.path.join( path_to_here, "outputs/" )
-timestep = 30
-starttime = int((1 - (10/60))*3600)
+timestep = 60
+starttime = int((1 - (55/60))*3600)
 endtime = 25*3600
 
 command = [
