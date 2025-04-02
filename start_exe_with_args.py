@@ -19,7 +19,7 @@ command = [
     "-ts", str(timestep),
     "-start", str(starttime),
     "-end", str(endtime),
-    "-opendss","False",
+    "-opendss","True",
     "-epcnmfecs","False",
 ]
 print("Running command:  ",command)

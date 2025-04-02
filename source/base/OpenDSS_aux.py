@@ -119,6 +119,7 @@ class logger_helper:
     def __init__(self, io_dir):
         self.io_dir = io_dir
 
+
     def get_request_list(self):
         return [input_datasets.baseLD_data_obj, input_datasets.all_caldera_node_names]
 
@@ -143,7 +144,6 @@ class logger_helper:
         for (msg_enum, parameters) in message_dict.items():
             if msg_enum == OpenDSS_message_types.get_all_node_voltages:
                 return_dict[msg_enum] = self.get_pu_node_voltages_for_caldera()
-                
             else:
                 raise ValueError('Invalid message in caldera_ICM_aux::process_message.')
         
@@ -161,7 +161,7 @@ class logger_helper:
             return_dict[node_name] = 1.0
         
         return return_dict
-
+    
     def solve(self, simulation_unix_time):
         self.logger_obj.compute_total_load_profiles(self.node_pevPQ, simulation_unix_time)
         
@@ -194,7 +194,10 @@ class open_dss_external_control:
         for (msg_enum, parameters) in msg_dict.items():
             if msg_enum == OpenDSS_message_types.get_all_node_voltages:
                 return_dict[msg_enum] = self.__get_all_node_voltages()
-                
+
+            elif msg_enum == OpenDSS_message_types.get_all_node_voltages:
+                return_dict[msg_enum] = self.get_pu_node_voltages_hourly()
+
             else:
                 raise ValueError('Invalid message in caldera_ICM_aux::process_message.')
         
@@ -202,6 +205,8 @@ class open_dss_external_control:
         # If there is nothing to return, return an empty dictionary.
         return return_dict
 
+    def get_pu_node_voltages_hourly(self):
+        pass
 
 
 class open_dss_core:
@@ -375,7 +380,7 @@ class open_dss_logger_A:
         
         node_voltages_to_log = ['810.2', '822.1', '826.2', '856.2', '864.1', '848.1', '848.2', '848.3', '840.1', '840.2', '840.3', '838.2', '890.1', '890.2', '890.3']
         #node_pev_charging_to_log = ['810.2', '826.2', '856.2', '838.2']
-        node_pev_charging_to_log = ['806.1','806', '854']
+        node_pev_charging_to_log = ['848', '854']
         
         #------------------------------
         

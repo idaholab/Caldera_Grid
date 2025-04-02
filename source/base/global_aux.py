@@ -30,6 +30,7 @@ class input_datasets(enum.Enum):
 
 class OpenDSS_message_types(enum.Enum):
     get_all_node_voltages = 1
+    get_hourly_node_voltages = 2
 
 
 class Caldera_message_types(enum.Enum):

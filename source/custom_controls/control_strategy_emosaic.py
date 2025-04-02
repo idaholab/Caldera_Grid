@@ -59,6 +59,7 @@ class control_strategy_emosaic(typeA_control):
     def get_messages_to_request_state_info_from_OpenDSS(self, current_simulation_unix_time):
         return_dict = {}
         return_dict[OpenDSS_message_types.get_all_node_voltages] = None
+        #return_dict[OpenDSS_message_types.get_hourly_node_voltages] = None
         
         # The return value (return_dict) must be a dictionary with OpenDSS_message_types as keys.
         # If there is nothing to return, return an empty dictionary.
@@ -73,7 +74,9 @@ class control_strategy_emosaic(typeA_control):
         DSS_control_info_dict = {}
 
         hour = int(current_simulation_unix_time/3600)
-        pu_price = 0.8
+        print("Solving for hour {}".format(hour))
+
+        pu_price = self.price_profile[hour%24]
         
         CEs_852 = self.agent.get_charge_events_to_add(pu_price, '852', hour)
         CEs_862 = self.agent.get_charge_events_to_add(pu_price, '862', hour)
@@ -159,44 +162,3 @@ class RE_agent():
 
         return zipped_list
 
-
-
-'''        
-        # add 2 similar charge event at different SEs in the first iteration
-        if self.iteration_number == 0:
-            charge_event_id = 1         # Does not have to be unique for Caldera ICM, but uniqueness could be needed for control
-            SE_id = 5                   # Target supply equipment for charge event
-            vehicle_type = "bev250_ld2_300kW"
-            start_time_hrs = 16
-            end_time_hrs = 18
-            start_SOC = 0
-            end_SOC = 1
-            ES_str = "NA"
-            VS_str = "NA"
-            Ext_str = "NA"
-
-            Caldera_control_info_dict[Caldera_message_types.add_charge_events] = []
-            
-            errors, charge_event = self.datasets_dict[input_datasets.charge_event_builder].get_charge_event(charge_event_id, SE_id, vehicle_type, start_time_hrs, end_time_hrs, start_SOC, end_SOC, ES_str, VS_str, Ext_str)
-            if(len(errors) == 0):
-                Caldera_control_info_dict[Caldera_message_types.add_charge_events].append(charge_event)
-            else:
-                for error in errors:
-                    print(error)
-
-            errors, charge_event = self.datasets_dict[input_datasets.charge_event_builder].get_charge_event(charge_event_id, SE_id+1, vehicle_type, start_time_hrs, end_time_hrs, start_SOC, end_SOC, ES_str, VS_str, Ext_str)
-            if(len(errors) == 0):
-                Caldera_control_info_dict[Caldera_message_types.add_charge_events].append(charge_event)
-            else:
-                for error in errors:
-                    print(error)
-            
-            self.iteration_number += 1
-
-        # Stop one of the charge event in the middle
-        current_simulation_unix_time_hrs = (current_simulation_unix_time/3600)
-        
-        if 3600*abs(current_simulation_unix_time_hrs - 17) < 0.5*self.grid_timestep_sec:
-            print("stopping charge event")
-            Caldera_control_info_dict[Caldera_message_types.stop_active_charge_events] = [6]        # -> list of SE_id to stop charging
-'''
