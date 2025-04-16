@@ -7,6 +7,10 @@ New Load.pev1p_856.2 Bus1=856.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kV
 
 New Load.pev1p_822.1 Bus1=822.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
 
+New Load.pev3p_862 Bus1=862 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+! New Load.pev3p_846 Bus1=846 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+New Load.pev3p_852 Bus1=852 Phases=3 Conn=Delta Model=1 kV=24.900 kW=0.0001 kVAR=0 status=fixed
+
 New Load.pev1p_806.1 Bus1=806.1 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
 New Load.pev1p_806.2 Bus1=806.2 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed
 New Load.pev1p_806.3 Bus1=806.3 Phases=1 Conn=Wye Model=1 kV=14.376 kW=0.0001 kVAR=0 status=fixed

@@ -58,7 +58,10 @@ class control_strategy_emosaic(typeA_control):
     
     def get_messages_to_request_state_info_from_OpenDSS(self, current_simulation_unix_time):
         return_dict = {}
-        return_dict[OpenDSS_message_types.get_all_node_voltages] = None
+        # Request voltage and current info from OpenDSS
+        return_dict[OpenDSS_message_types.get_node_voltage_profiles] = None
+        return_dict[OpenDSS_message_types.get_line_current_profiles] = None
+        
         #return_dict[OpenDSS_message_types.get_hourly_node_voltages] = None
         
         # The return value (return_dict) must be a dictionary with OpenDSS_message_types as keys.
@@ -75,6 +78,14 @@ class control_strategy_emosaic(typeA_control):
 
         hour = int(current_simulation_unix_time/3600)
         print("Solving for hour {}".format(hour))
+
+        # Receive Voltages and Currents from OpenDSS
+        df = DSS_state_info_dict[OpenDSS_message_types.get_node_voltage_profiles]
+        df.to_csv(os.path.join(self.io_dir.outputs_dir, "voltage_profile_{}.csv".format(int(hour))), index = False)
+        
+        df = DSS_state_info_dict[OpenDSS_message_types.get_line_current_profiles]
+        df.to_csv(os.path.join(self.io_dir.outputs_dir, "current_profile_{}.csv".format(int(hour))), index = False)
+
 
         pu_price = self.price_profile[hour%24]
         

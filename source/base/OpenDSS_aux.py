@@ -18,21 +18,58 @@ class open_dss:
         else:
             self.helper = logger_helper(io_dir)
 
+        # The dictionararies save current and voltage every timestep
+        self.voltage_profile = {}
+        self.current_profile = {}
+        
+
 
     def get_input_dataset_enum_list(self):
         return self.helper.get_request_list()
 
 
     def load_input_datasets(self, datasets_dict):
+        self.datasets_dict = datasets_dict
         self.helper.load_input_datasets(datasets_dict)
 
 
-    def initialize(self):       
+    def initialize(self):
+
+        # Intializing RL helper class
+        self.RL_helper = RL_helper(self.datasets_dict[input_datasets.all_caldera_node_names], self.datasets_dict[input_datasets.HPSE_caldera_node_names])
         return self.helper.initialize()
     
 
-    def process_control_messages(self, simulation_unix_time, message_dict):        
-        return self.helper.process_control_messages(simulation_unix_time, message_dict)
+    def process_control_messages(self, simulation_unix_time, message_dict):
+
+        return_val = self.helper.process_control_messages(simulation_unix_time, message_dict)
+
+        # Convert OpenDSS Voltages to Dataframe format and send the info to External Control Federate 
+        key = OpenDSS_message_types.get_node_voltage_profiles
+        if key in return_val:
+            v_df = pd.DataFrame()        
+            for key, value in self.voltage_profile.items():
+                v_df[key] = value
+            
+            return_val[OpenDSS_message_types.get_node_voltage_profiles] = v_df
+        
+        # Convert OpenDSS Currents to Dataframe format and send the info to External Control Federate
+        key = OpenDSS_message_types.get_line_current_profiles
+        if key in return_val:
+
+            i_df = pd.DataFrame()
+            for key, value in self.current_profile.items():
+                if key == "time":
+                    i_df["time"] = value
+                else:
+                    separated_lists = zip(*value)
+                    separated_lists = [list(t) for t in separated_lists]
+                    for (i, t) in enumerate(separated_lists):
+                        i_df["col_{}".format(i)] = list(t)
+            
+            return_val[OpenDSS_message_types.get_line_current_profiles] = i_df
+
+        return return_val
 
     
     def set_caldera_pev_charging_loads(self, node_pevPQ):
@@ -44,16 +81,101 @@ class open_dss:
     
     
     def solve(self, simulation_unix_time):
+        
         self.helper.solve(simulation_unix_time)        
-    
+        
+
+        # Collect voltage data for RL
+        if "time" not in self.voltage_profile:
+            self.voltage_profile["time"] = []
+        self.voltage_profile["time"].append(simulation_unix_time)
+
+        # Collect voltages and append to the data structure
+        node_voltages = self.RL_helper.get_voltages_for_RL()
+        for (node, V) in node_voltages.items():
+            if node not in self.voltage_profile:
+                self.voltage_profile[node] = []
+            self.voltage_profile[node].append(V)
+
+        # Collect current data for RL
+        if "time" not in self.current_profile:
+            self.current_profile["time"] = []
+        self.current_profile["time"].append(simulation_unix_time)
+
+        # Collect currents and append to the data structure
+        line_currents = self.RL_helper.get_currents_for_RL()
+        for (line, currents) in line_currents.items():
+            if line not in self.current_profile:
+                self.current_profile[line] = []
+            self.current_profile[line].append(currents)
 
     def log_data(self, simulation_unix_time):
         self.helper.log_data(simulation_unix_time)
 
-
     def post_simulation(self):
         self.helper.post_simulation()
 
+# An helper class to collect voltage and currents data for RL
+class RL_helper:
+    def __init__(self, all_caldera_node_names, HPSE_caldera_node_names):
+        self.all_caldera_node_names = all_caldera_node_names
+        self.HPSE_caldera_node_names = HPSE_caldera_node_names
+        self.line_currents_to_log=['L1(800-802)','L13(824-828)']
+            
+    def get_voltages_for_RL(self):
+        return_dict = {}
+        
+        #---------------
+        # Single Phase
+        #---------------
+        all_V = dss.Circuit.AllBusMagPu()
+        all_node_names = dss.Circuit.AllNodeNames()
+        
+        for i in range(len(all_V)):
+            if all_node_names[i] in self.all_caldera_node_names:
+                return_dict[all_node_names[i]] = all_V[i]
+        
+        #---------------
+        # Avg 3 Phase
+        #---------------
+        for bus_name in self.HPSE_caldera_node_names:    
+            dss.Circuit.SetActiveBus(bus_name)
+            V_complex_pu = dss.Bus.PuVoltage()
+            num_nodes = int(round(len(V_complex_pu)/2))
+            pu_V = 0
+            
+            for i in range(num_nodes):
+                pu_V += dss.CmathLib.cabs(V_complex_pu[2*i], V_complex_pu[2*i+1])
+            
+            return_dict[bus_name] = pu_V / num_nodes
+        
+        return return_dict
+
+    def get_currents_for_RL(self):
+        
+        return_dict = {}        
+        
+        for node_id in self.line_currents_to_log:
+            if node_id =='L1(800-802)':
+                #print("####Line between 800 - 802 nodes####")
+                dss.Lines.Name('L1')
+                current_rating = dss.Lines.NormAmps()
+                #print(f'Line L1 rated for {current_rating} amps of current')
+
+                dss.Circuit.SetActiveElement('Line.L1')
+                line_currents = dss.CktElement.CurrentsMagAng()[::2] # just the magnitudes
+                #print('Three-phase line currents:', line_currents)  # six because there's six terminals to a three-phase line
+
+                max_current = max(line_currents)
+                line_loading_L1 = max_current / current_rating
+                #print(f'the line is {100*line_loading_L1:.2f}% loaded')
+
+                #tmp_str = '{}, {}, {}, {}, {}, {}, {}, {}'.format(simulation_time_hrs,line_currents[0],line_currents[1], line_currents[2],#line_currents[3],line_currents[4],line_currents[5],line_loading_L1)
+                #f_node.write(tmp_str + '\n')
+            
+            return_dict[node_id] = (line_currents[0],line_currents[1], line_currents[2],line_currents[3],line_currents[4],line_currents[5],line_loading_L1)
+        
+        return return_dict
 
 class open_dss_helper:
 
@@ -195,8 +317,11 @@ class open_dss_external_control:
             if msg_enum == OpenDSS_message_types.get_all_node_voltages:
                 return_dict[msg_enum] = self.__get_all_node_voltages()
 
-            elif msg_enum == OpenDSS_message_types.get_all_node_voltages:
-                return_dict[msg_enum] = self.get_pu_node_voltages_hourly()
+            elif msg_enum == OpenDSS_message_types.get_node_voltage_profiles:
+                return_dict[msg_enum] = None
+
+            elif msg_enum == OpenDSS_message_types.get_line_current_profiles:
+                return_dict[msg_enum] = None
 
             else:
                 raise ValueError('Invalid message in caldera_ICM_aux::process_message.')

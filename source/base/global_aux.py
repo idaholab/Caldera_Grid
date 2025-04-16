@@ -30,7 +30,9 @@ class input_datasets(enum.Enum):
 
 class OpenDSS_message_types(enum.Enum):
     get_all_node_voltages = 1
-    get_hourly_node_voltages = 2
+    # New message communation channel between OpenDSS and External Federate goes here
+    get_node_voltage_profiles = 2
+    get_line_current_profiles = 3
 
 
 class Caldera_message_types(enum.Enum):
