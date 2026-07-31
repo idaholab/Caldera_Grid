@@ -166,25 +166,34 @@ class ES500_Aggregator_charging_needs_forecast:
         forecast_start_time = unix_start_time
         forecast_end_time = unix_start_time + self.prediction_horizon_duration_sec
         timestep_sec = 15*60
-        ASAP_profile_kW = np.zeros(int((forecast_end_time - forecast_start_time)/timestep_sec))
+        timestep_hrs = timestep_sec / 3600
+        forecast_steps = int((forecast_end_time - forecast_start_time)/timestep_sec)
+        
+        ASAP_profile_kW = np.zeros(forecast_steps)
 
         for i in range(len(CE_forecast.arrival_unix_time)):
             arrival_unix_time = CE_forecast.arrival_unix_time[i]
             departure_unix_time = CE_forecast.departure_unix_time[i]
             e3_charge_remain_kWh = CE_forecast.e3_charge_remain_kWh[i]
-            e3_step_max_kWh = CE_forecast.e3_step_max_kWh[i]
-            avg_power_kW = 10.58
-            avg_kWh_per_step = avg_power_kW * 15/60
+            max_power_kW = 10.58
+            max_kWh_per_step = max_power_kW * timestep_hrs
 
-            start_index = int((arrival_unix_time- forecast_start_time)/timestep_sec)
-            end_index = int((departure_unix_time- forecast_start_time)/timestep_sec)
+            start_index = int(np.floor((arrival_unix_time - forecast_start_time) / timestep_sec))
+            end_index = int(np.ceil((departure_unix_time - forecast_start_time) / timestep_sec))
+            
+            start_index = max(0, min(start_index, forecast_steps))
+            end_index = max(0, min(end_index, forecast_steps))
+
+            if start_index >= end_index:
+                continue
 
             energy_remain_kWh = e3_charge_remain_kWh
+            
             for idx in range(start_index, end_index):
-
+                
                 if energy_remain_kWh > 0:
-                    ASAP_profile_kW[idx] += avg_power_kW            
-                    energy_remain_kWh =- avg_kWh_per_step
+                    ASAP_profile_kW[idx] += max_power_kW            
+                    energy_remain_kWh -= max_kWh_per_step
                 else:
                     break
 
