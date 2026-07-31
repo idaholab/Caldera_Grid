@@ -47,10 +47,6 @@ class ES400_aux(typeA_control):
         return L2_control_strategies_enum.ES400 not in self.datasets_dict[input_datasets.Caldera_L2_ES_strategies]
     
     def initialize(self):
-        
-        # For measuring time between calls to "solve"
-        self.between_solves_time = time.time()
-        
         SE_CE_data_obj = self.datasets_dict[input_datasets.SE_CE_data_obj]
         baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         global_parameters = self.datasets_dict[input_datasets.Caldera_global_parameters]
@@ -178,12 +174,7 @@ class ES400_aux(typeA_control):
     def solve(self, current_simulation_unix_time, Caldera_state_info_dict, DSS_state_info_dict):
         # current_simulation_unix_time refers to when the next control action would start. i.e. begining of next control timestep 
         # and end of current control timestep
-    
-        
-        time_since_last_call = time.time() - self.between_solves_time
-        
-        time00 = time.time()
-        
+
         next_control_starttime_sec = current_simulation_unix_time
         forecast_end_time = next_control_starttime_sec + self.forecast_duration_sec
         print("Control Strategy next_control_timestep_sec : ", next_control_starttime_sec/3600.0)
@@ -201,20 +192,13 @@ class ES400_aux(typeA_control):
         forecasted_cost_ts = self.cost_forecaster.get_cost_for_time_range(
             "adjusted", next_control_starttime_sec, next_control_starttime_sec, 
             forecast_end_time, self.controller_timestep_secs)
-        
-        time01 = time.time()
-        
-        
-        start = time.time()
-        
+
         CEs_all = []
         for active_CE in Caldera_state_info_dict[Caldera_message_types.get_active_charge_events_by_SEids]:
             CEs_all.append(active_CE)
         
         
         active_SEs = [CE.SE_id for CE in CEs_all]
-        
-        time02 = time.time()
         
         new_CEs = []
         CEs_to_adjust = []
@@ -232,8 +216,6 @@ class ES400_aux(typeA_control):
 #            else:
 #                if (cost_deviated_from_forecast):
 #                    CEs_to_adjust.append(CE)
-        
-        time03 = time.time()
         
         base_D_kW = self.cost_forecaster.get_adjusted_data_for_time_range( 
             'demand', next_control_starttime_sec, next_control_starttime_sec, 
@@ -262,8 +244,6 @@ class ES400_aux(typeA_control):
         Caldera_control_info_dict = {}
         DSS_control_info_dict = {}
 
-        time04 = time.time()
-
         # get control setpoints from controller
         PQ_setpoints = self.controller.get_SE_setpoints(next_control_starttime_sec, active_SEs)
 
@@ -275,32 +255,7 @@ class ES400_aux(typeA_control):
         # Caldera_control_info_dict must be a dictionary with Caldera_message_types as keys.
         # DSS_control_info_dict must be a dictionary with OpenDSS_message_types as keys.
         # If either value has nothing to return, return an empty dictionary.
-        
-        
-        time05 = time.time()
-        
-        
-        print("flag1")
-        print("   time_since_last_call: ",time_since_last_call)
-        print("   num events: ", self.num_events)
-        
-        
-        print("   solve time                 : ", time05-time00 )
-        print("   forecast cost              : ", time01-time00 )
-        print("   Update CE_all, active_SE   : ", time02-time01 )
-        print("   new_CEs                    : ", time03-time02 )
-        print("   controller solve           : ", time04-time03 )
-        print("   controller setpoints       : ", time05-time04 )
-        
-        if (self.num_events > 0):
-            print("   solve time per event             : ", (time05-time00)/self.num_events )
-            print("   controller solve per event       : ", (time04-time03)/self.num_events )
-            print("   controller setpoints per event   : ", (time05-time04)/self.num_events )
-        
-        
-        # Start measuring time to the next call of this function.
-        self.between_solves_time = time.time()
-        
+
         return (Caldera_control_info_dict, DSS_control_info_dict)
 
     def cleanup_this_federate(self):

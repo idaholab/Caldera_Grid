@@ -3,7 +3,6 @@ from ICM_aux import ICM_aux
 from global_aux import input_datasets
 from Helics_Helper import send, receive, cleanup
 import os
-import time
 
 def caldera_ICM_federate( io_dir,
                           json_config_file_name,
@@ -139,7 +138,7 @@ def caldera_ICM_federate( io_dir,
         #=====================================
         #         	Sub Step 1 
         #=====================================
-        time00 = time.time()
+
         #-------------------------------------
         #     Process TypeB Control-Info
         #-------------------------------------
@@ -151,14 +150,9 @@ def caldera_ICM_federate( io_dir,
         #=====================================
         #         	Sub Step 2        
         #=====================================
-        
-        
-        
+
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
-        time01 = time.time()
-        
-        
+
         #-------------------------------------
         # Read node voltages from OpenDSS
         #-------------------------------------
@@ -168,9 +162,8 @@ def caldera_ICM_federate( io_dir,
         #-------------------------------------
         # Calculate pev P and Q
         #-------------------------------------
-        time02a = time.time()
         node_pevPQ = ICM_obj.get_charging_power(federate_time, node_puV)
-        time02b = time.time()
+
         #-------------------------------------
         # Send pev P and Q to OpenDSS
         #-------------------------------------
@@ -180,11 +173,7 @@ def caldera_ICM_federate( io_dir,
         #         	Sub Step 3
         #=====================================		
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
-        time02 = time.time()
-        
-        
-        
+
         #-------------------------------------
         #   Read & Process TypeB Messages
         #-------------------------------------
@@ -198,9 +187,6 @@ def caldera_ICM_federate( io_dir,
         #         	Sub Step 4
         #=====================================
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
-        time03 = time.time()
-        
 
         #-------------------------------------
         #   Read & Process TypeA Messages
@@ -215,16 +201,7 @@ def caldera_ICM_federate( io_dir,
         #      Advance to Next Time Step
         #=====================================
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
-        time04 = time.time()
-        
-        #print("ICM time full step    :", time04 - time00)
-        #print("        step 1           :", time01 - time00)
-        #print("        step 2 sub       :", time02b - time02a)
-        #print("        step 2           :", time02 - time01)
-        #print("        step 3           :", time03 - time02)
-        #print("        step 4           :", time04 - time03)
-        
+
         if federate_time >= end_simulation_unix_time:
             break
 
