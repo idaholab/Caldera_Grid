@@ -1,5 +1,4 @@
 
-import time
 import os
 import sys
 
@@ -45,10 +44,6 @@ class ES500_aux(typeA_control):
     
     
     def initialize(self):
-        
-        # For measuring time between calls to "solve"
-        self.between_solves_time = time.time()
-        
         SE_CE_data_obj = self.datasets_dict[input_datasets.SE_CE_data_obj]
         baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         global_parameters = self.datasets_dict[input_datasets.Caldera_global_parameters]
@@ -56,7 +51,6 @@ class ES500_aux(typeA_control):
         ES500_params = L2_control_strategy_parameters_dict[L2_control_strategies_enum.ES500]
         
         aggregator_timestep_mins = ES500_params['aggregator_timestep_mins']
-        self.aggregator_poll_time_sec = ES500_params['aggregator_poll_time_sec']
         
         #-------------------------------------
         #    Calculate Timing Parameters
@@ -183,12 +177,9 @@ class ES500_aux(typeA_control):
         # Caldera_state_info_dict is a dictionary with Caldera_message_types as keys.
         # DSS_state_info_dict is a dictionary with OpenDSS_message_types as keys. 
         
-        time_since_last_call = time.time() - self.between_solves_time
-        
         #---------------------
         #    Get Forecasts
         #---------------------
-        time00 = time.time()
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
         base_D_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
         
@@ -219,58 +210,21 @@ class ES500_aux(typeA_control):
         D_net_kWh =  np.array([self.forecast_timestep_hrs*akW for akW in D_net_kW])
         
         CE_forecast = self.CE_forecaster.get_forecast(next_aggregator_start_unix_time)
-        time01 = time.time()
         
         #-----------------------------
         # Calculate Optimal Solution
         #-----------------------------
-        time02 = time.time()
         process_id = '1'
         tmp_Caldera_state_info = {}
         tmp_Caldera_state_info[process_id] = Caldera_state_info_dict[Caldera_message_types.ES500_get_charging_needs]
-        time03 = time.time()
-        
-        '''
-        print("ES500 fed: starting solve")
-        self.aggregator_obj.start_solving(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)
-        
-        tmp_Caldera_control_info = None
-        while True:
-            tmp_Caldera_control_info = self.aggregator_obj.check_for_solution(next_aggregator_start_unix_time)
-            
-            if tmp_Caldera_control_info == None:
-                time.sleep(self.aggregator_poll_time_sec)
-            else:
-                break
-        '''
         
         #-----------------------------
         
-        time04 = time.time()
         self.pev_energy = self.aggregator_obj.start_solving_v2(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)  # Needed to log data
         Caldera_control_info_dict = {}
         Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = self.pev_energy[process_id]
         
         DSS_control_info_dict = {}
-        time05 = time.time()
-
-        '''
-        print("flag1")
-        print("   time_since_last_call: ",time_since_last_call)
-        print("   time00: ",time00 )
-        print("   time01: ",time01 )
-        print("   time02: ",time02 )
-        print("   time03: ",time03 )
-        print("   time04: ",time04 )
-        print("   time05: ",time05 )
-        print("   time01-time00: ", time01-time00 )
-        print("   time03-time02: ", time03-time02 )
-        print("   time05-time04: ", time05-time04 )
-        print("   time05-time00: ", time05-time00 )
-        '''
-
-        # Start measuring time to the next call of this function.
-        self.between_solves_time = time.time()
 
         # Caldera_control_info_dict must be a dictionary with Caldera_message_types as keys.
         # DSS_control_info_dict must be a dictionary with OpenDSS_message_types as keys.
