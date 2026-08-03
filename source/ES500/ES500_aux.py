@@ -116,7 +116,12 @@ class ES500_aux(typeA_control):
         #------------------------------
         #     Create CE Forecaster 
         #------------------------------
-        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(SE_CE_data_obj.SE_group_charge_events, SE_CE_data_obj.SEid_to_SE_type, ES500_params)
+        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(
+            SE_CE_data_obj.SE_group_charge_events,
+            SE_CE_data_obj.SEid_to_SE_type,
+            ES500_params,
+            L2_control_strategies_enum.ES500,
+        )
         
         #------------------------------
         #     Create cost/generation Forecaster 
@@ -392,4 +397,3 @@ class ES500_Aggregator_log_files:
                 for i in range(len(SE_id)):
                     line = "{}, {}, {}, {}, {}, {}".format(start_time, start_time/3600, process_id, SE_id[i], e3_step_kWh[i], charge_progression[i])
                     self.f_e_step.write(line + '\n')      
- 

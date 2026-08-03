@@ -114,7 +114,12 @@ class ES400_aux(typeA_control):
         #------------------------------
         #     Create CE Forecaster 
         #------------------------------
-        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(SE_CE_data_obj.SE_group_charge_events, SE_CE_data_obj.SEid_to_SE_type, ES500_params)
+        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(
+            SE_CE_data_obj.SE_group_charge_events,
+            SE_CE_data_obj.SEid_to_SE_type,
+            ES500_params,
+            L2_control_strategies_enum.ES400,
+        )
 
         #-------------------------------------
         # Temporary
