@@ -21,6 +21,9 @@ from cost_forecaster import TE_cost_forecaster_v3
 import numpy as np
 
 
+MW_TO_KW = 1000.0
+
+
 class ES500_aux(typeA_control):
 
     def __init__(self, io_dir, simulation_time_constraints):        
@@ -190,19 +193,22 @@ class ES500_aux(typeA_control):
         base_D_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
         
         if self.objective_function == ES500_objective_function.maximize_renewables:
+            forecast_end_time = next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600
+            forecast_timestep_sec = self.forecast_timestep_mins * 60
 
-            if os.environ['SIM_SCALE'] == "full":
-                multiplier = 1000
-            elif os.environ['SIM_SCALE'] == "small":
-                multiplier = 1
-            else:
-                multiplier = 1000    # Run full simulation by default
-            
-            print("ES500:", os.environ['SIM_SCALE'])
-            # data_id, current_time_sec, start_time_sec, end_time_sec, timestep_sec, debug
-            solar_kW = self.cost_forecaster.get_raw_data_for_time_range( "solar", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
-            wind_kW = self.cost_forecaster.get_raw_data_for_time_range( "wind", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
-            nuclear_kW = self.cost_forecaster.get_raw_data_for_time_range( "nuclear", "actual", next_aggregator_start_unix_time, next_aggregator_start_unix_time, next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600, self.forecast_timestep_mins * 60, False ) * multiplier
+            # The TE input loader normalizes generation data to MW.
+            solar_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "solar", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
+            wind_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "wind", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
+            nuclear_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "nuclear", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
             
             D_net_kW = nuclear_kW + solar_kW + wind_kW - base_D_akW
 
