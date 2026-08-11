@@ -5,11 +5,12 @@ from numpy import random
 from Caldera_globals import L2_control_strategies_enum
 from Caldera_globals import ES500_aggregator_charging_forecast
 from Caldera_ICM_Aux import get_value_from_normal_distribution
+import numpy as np
 
 
 class ES500_Aggregator_charging_needs_forecast:
 
-    def __init__(self, SE_group_charge_events, SEid_to_SE_type, ES500_Aggregator_parameters):
+    def __init__(self, SE_group_charge_events, SEid_to_SE_type, ES500_Aggregator_parameters, control_strategy):
         self.prediction_horizon_duration_sec = 3600*ES500_Aggregator_parameters['prediction_horizon_duration_hrs']
         self.aggregator_timestep_hrs = ES500_Aggregator_parameters['aggregator_timestep_mins'] / 60
     
@@ -41,7 +42,8 @@ class ES500_Aggregator_charging_needs_forecast:
         
         for X in SE_group_charge_events:
             for charge_event in X.charge_events:
-                if L2_control_strategies_enum.ES500 == charge_event.control_enums.ES_control_strategy:
+
+                if control_strategy == charge_event.control_enums.ES_control_strategy:
                     arrival_unix_time = charge_event.arrival_unix_time + error_arrival_time_sec.get_value()
                     
                     park_duration_sec = charge_event.departure_unix_time - charge_event.arrival_unix_time
@@ -84,12 +86,14 @@ class ES500_Aggregator_charging_needs_forecast:
         # Append additional day to end of forecast
         # But why?            
         #------------------------------------------        
-        df = pd.DataFrame(self.arrival_unix_time)
-        column_name = df.columns[0]        
-        max_val = df[column_name].max() 
-        df = df[(max_val - 24*3600) < df[column_name]]
-        
-        indexes = df.index.to_list()
+        if self.arrival_unix_time:
+            df = pd.DataFrame(self.arrival_unix_time)
+            column_name = df.columns[0]
+            max_val = df[column_name].max()
+            df = df[(max_val - 24*3600) < df[column_name]]
+            indexes = df.index.to_list()
+        else:
+            indexes = []
        
         arrival_unix_time_end = []
         departure_unix_time_end = []
@@ -115,11 +119,11 @@ class ES500_Aggregator_charging_needs_forecast:
         self.vehicle_type.extend(vehicle_type_end)
         self.SE_type.extend(SE_type_end)
         
-        self.df_arrival_unix_time = pd.DataFrame(self.arrival_unix_time)
+        self.df_arrival_unix_time = pd.DataFrame({"arrival_unix_time": self.arrival_unix_time})
             
 
     def get_forecast(self, unix_start_time):
-        column_name = self.df_arrival_unix_time.columns[0]
+        column_name = "arrival_unix_time"
         filter_end_time = unix_start_time + self.prediction_horizon_duration_sec
         
         df_tmp = self.df_arrival_unix_time[(unix_start_time < self.df_arrival_unix_time[column_name]) & (self.df_arrival_unix_time[column_name] < filter_end_time)]        
@@ -157,4 +161,43 @@ class ES500_Aggregator_charging_needs_forecast:
         return_val.e3_step_max_kWh = e3_step_max_kWh
         
         return return_val
+    
+    def get_forecast_for_ES400(self, unix_start_time):
+        CE_forecast = self.get_forecast(unix_start_time)
+
+        forecast_start_time = unix_start_time
+        forecast_end_time = unix_start_time + self.prediction_horizon_duration_sec
+        timestep_sec = 15*60
+        timestep_hrs = timestep_sec / 3600
+        forecast_steps = int((forecast_end_time - forecast_start_time)/timestep_sec)
+        
+        ASAP_profile_kW = np.zeros(forecast_steps)
+
+        for i in range(len(CE_forecast.arrival_unix_time)):
+            arrival_unix_time = CE_forecast.arrival_unix_time[i]
+            departure_unix_time = CE_forecast.departure_unix_time[i]
+            e3_charge_remain_kWh = CE_forecast.e3_charge_remain_kWh[i]
+            max_power_kW = 10.58
+            max_kWh_per_step = max_power_kW * timestep_hrs
+
+            start_index = int(np.floor((arrival_unix_time - forecast_start_time) / timestep_sec))
+            end_index = int(np.ceil((departure_unix_time - forecast_start_time) / timestep_sec))
+            
+            start_index = max(0, min(start_index, forecast_steps))
+            end_index = max(0, min(end_index, forecast_steps))
+
+            if start_index >= end_index:
+                continue
+
+            energy_remain_kWh = e3_charge_remain_kWh
+            
+            for idx in range(start_index, end_index):
+                
+                if energy_remain_kWh > 0:
+                    ASAP_profile_kW[idx] += max_power_kW            
+                    energy_remain_kWh -= max_kWh_per_step
+                else:
+                    break
+
+        return ASAP_profile_kW
 

@@ -55,7 +55,11 @@ class charge_controller_data:
             Given a SE_ids return the corresponding SE_id indices.
         '''
         
-        return np.vectorize(self.SE_id_to_controller_index_map.get)(np.array(SE_ids_arr))
+        if not SE_ids_arr:  # Check if SE_ids_arr is empty
+            return_val = np.array([])  # Return an empty numpy array
+        else:
+            return_val = np.vectorize(self.SE_id_to_controller_index_map.get)(np.array(SE_ids_arr))
+        return return_val
             
     def get_SE_ids_from_indices(self, SE_indices):
         '''
@@ -205,7 +209,7 @@ class charge_controller:
         
         return result
     
-    def get_SE_setpoints(self, next_control_timestep_sec : float, active_SEs : List[int] ) -> List[SE_setpoint]:
+    def get_SE_setpoints(self, next_control_timestep_sec : float, active_SEs) -> List[SE_setpoint]:
         '''
         Description:
             Looks up controller_2Darr to see which SEs needs to charge at the specific time
@@ -213,22 +217,28 @@ class charge_controller:
         
         time_index = floor((next_control_timestep_sec - self.controller_starttime_sec)/ self.controller_timestep_sec)
         
-        # check all rows with active charge events that need to charge
-        SE_indexes_to_charge = np.array(np.where(self.controller_data.controller_2Darr[:, time_index] == True))
+        charging_needed = self.controller_data.controller_2Darr[:, time_index]
+        
+        active_indices = self.controller_data.get_indices_from_SE_ids(active_SEs)
         
         PQ_setpoints = []
-        for SE_id in active_SEs:
+        for SE_id, index in zip(active_SEs, active_indices):
             X = SE_setpoint()
             X.SE_id = SE_id
-            if np.any(SE_indexes_to_charge == self.controller_data.get_indices_from_SE_ids([SE_id])[0]):
-                X.PkW = 1000
-            else:
-                X.PkW = 0
-
+            X.PkW = 1000 if charging_needed[index] else 0
             PQ_setpoints.append(X)
         
         return PQ_setpoints
     
+    def get_aggregate_charge_profile(self, start_time_sec, end_time_sec):
+
+        start_time_idx = self.controller_data.get_indices_from_time_s([start_time_sec])[0]
+        end_time_idx = self.controller_data.get_indices_from_time_s([end_time_sec])[0]
+
+        plugin_profile = np.sum(self.controller_data.controller_2Darr[:, start_time_idx:end_time_idx], axis=0).astype(int)
+        power_profile_kW = plugin_profile * 10.58 # Assuming average charge rate of 10.58 kW
+
+        return power_profile_kW
 
     def __debug_plot(self, next_control_starttime_sec, start_time_sec, end_time_sec, SE_idx, cost_profile, active_charge_event):
         

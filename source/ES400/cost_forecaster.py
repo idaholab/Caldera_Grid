@@ -596,7 +596,7 @@ class TE_cost_forecaster_v3():
 
         
     def get_adjusted_data_for_time_range(
-            self, data_id:float, cur_time_sec:float, start_time_sec: float, 
+            self, data_id:str, cur_time_sec:float, start_time_sec: float, 
             end_time_sec: float, req_time_step_sec: float, debug = False):
         
         forecast_arr = self.get_data_for_time_range(data_id, "forecast", cur_time_sec, start_time_sec, end_time_sec, req_time_step_sec, debug)

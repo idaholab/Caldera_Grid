@@ -1,6 +1,6 @@
 
-import time
 import os
+import sys
 
 from ES500_Aggregator import ES500_aggregator_parameters__general, ES500_aggregator_parameters__solve_optimization_model, ES500_aggregator_parameters__allocate_energy_to_PEVs
 from ES500_Aggregator import ES500_aggregator, ES500_objective_function, ES500_optimization_solver
@@ -10,12 +10,25 @@ from Caldera_globals import L2_control_strategies_enum
 from global_aux import Caldera_message_types, OpenDSS_message_types, input_datasets, container_class
 from control_templates import typeA_control
 
+import pandas as pd
+
+file_dir = os.path.dirname(os.path.abspath(__file__))
+index = 1
+sys.path.insert( index+0, os.path.join( file_dir, "..", "ES400" ) )
+
+from cost_forecaster import TE_cost_forecaster_v3
+import numpy as np
+
+
+MW_TO_KW = 1000.0
+
 
 class ES500_aux(typeA_control):
 
     def __init__(self, io_dir, simulation_time_constraints):        
         super().__init__(io_dir, simulation_time_constraints)
-    
+        
+        self.io_dir = io_dir
     
     def get_input_dataset_enum_list(self):
         return [input_datasets.SE_CE_data_obj, input_datasets.baseLD_data_obj, input_datasets.Caldera_L2_ES_strategies, input_datasets.Caldera_global_parameters, input_datasets.Caldera_control_strategy_parameters_dict]
@@ -31,10 +44,6 @@ class ES500_aux(typeA_control):
     
     
     def initialize(self):
-        
-        # For measuring time between calls to "solve"
-        self.between_solves_time = time.time()
-        
         SE_CE_data_obj = self.datasets_dict[input_datasets.SE_CE_data_obj]
         baseLD_data_obj = self.datasets_dict[input_datasets.baseLD_data_obj]
         global_parameters = self.datasets_dict[input_datasets.Caldera_global_parameters]
@@ -42,7 +51,6 @@ class ES500_aux(typeA_control):
         ES500_params = L2_control_strategy_parameters_dict[L2_control_strategies_enum.ES500]
         
         aggregator_timestep_mins = ES500_params['aggregator_timestep_mins']
-        self.aggregator_poll_time_sec = ES500_params['aggregator_poll_time_sec']
         
         #-------------------------------------
         #    Calculate Timing Parameters
@@ -77,21 +85,21 @@ class ES500_aux(typeA_control):
         solve_optimization_model_params.calc_obj_fun_constraints_depart_time_adjustment_sec = ES500_params['calc_obj_fun_constraints_depart_time_adjustment_sec']
         
         if ES500_params['objective_function'] == 'minimize_delta_load':
-            objective_function = ES500_objective_function.minimize_delta_load
+            self.objective_function = ES500_objective_function.minimize_delta_load
         
-        elif ES500_params['objective_function'] == 'maximize_renewables':
-            objective_function = ES500_objective_function.maximize_renewables
+        elif ES500_params['objective_function'] == 'minimize_load':
+            self.objective_function = ES500_objective_function.minimize_load
             
         elif ES500_params['objective_function'] == 'minimize_delta_pev_load':
-            objective_function = ES500_objective_function.minimize_delta_pev_load
+            self.objective_function = ES500_objective_function.minimize_delta_pev_load
         
         elif ES500_params['objective_function'] == 'maximize_renewables':
-            objective_function = ES500_objective_function.maximize_renewables
+            self.objective_function = ES500_objective_function.maximize_renewables
             
         else:
-            objective_function = ES500_objective_function.minimize_load
-                
-        solve_optimization_model_params.ES500_objective_function = objective_function
+            self.objective_function = ES500_objective_function.minimize_load
+        
+        solve_optimization_model_params.ES500_objective_function = self.objective_function
         
         opt_solver_iteration_values = []
         for (cvxopt__max_relative_gap, iteration_timeout_sec) in ES500_params['opt_solver_iteration_values']:
@@ -105,8 +113,18 @@ class ES500_aux(typeA_control):
         #------------------------------
         #     Create CE Forecaster 
         #------------------------------
-        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(SE_CE_data_obj.SE_group_charge_events, SE_CE_data_obj.SEid_to_SE_type, ES500_params)
+        self.CE_forecaster = ES500_Aggregator_charging_needs_forecast(
+            SE_CE_data_obj.SE_group_charge_events,
+            SE_CE_data_obj.SEid_to_SE_type,
+            ES500_params,
+            L2_control_strategies_enum.ES500,
+        )
         
+        #------------------------------
+        #     Create cost/generation Forecaster 
+        #------------------------------
+        self.cost_forecaster = TE_cost_forecaster_v3(os.path.join(self.io_dir.inputs_dir, 'TE_inputs'), ".", False)
+
         #------------------------------
         #   Create baseLD Forecaster
         #------------------------------
@@ -159,73 +177,75 @@ class ES500_aux(typeA_control):
         # Caldera_state_info_dict is a dictionary with Caldera_message_types as keys.
         # DSS_state_info_dict is a dictionary with OpenDSS_message_types as keys. 
         
-        time_since_last_call = time.time() - self.between_solves_time
-        
         #---------------------
         #    Get Forecasts
         #---------------------
-        time00 = time.time()
         next_aggregator_start_unix_time = next_control_timestep_start_unix_time
-        D_net_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
-        D_net_kWh = [self.forecast_timestep_hrs*akW for akW in D_net_akW]
+        base_D_akW = self.baseLD_forecaster.get_forecast_akW(next_aggregator_start_unix_time, self.forecast_timestep_mins, self.forecast_duration_hrs)
+        
+        if self.objective_function == ES500_objective_function.maximize_renewables:
+            forecast_end_time = next_aggregator_start_unix_time + self.forecast_duration_hrs * 3600
+            forecast_timestep_sec = self.forecast_timestep_mins * 60
+
+            # The TE input loader normalizes generation data to MW.
+            solar_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "solar", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
+            wind_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "wind", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
+            nuclear_kW = self.cost_forecaster.get_raw_data_for_time_range(
+                "nuclear", "actual", next_aggregator_start_unix_time,
+                next_aggregator_start_unix_time, forecast_end_time,
+                forecast_timestep_sec, False) * MW_TO_KW
+            
+            D_net_kW = nuclear_kW + solar_kW + wind_kW - base_D_akW
+
+        else:
+            
+            D_net_kW = base_D_akW
+        
+        D_net_kWh =  np.array([self.forecast_timestep_hrs*akW for akW in D_net_kW])
         
         CE_forecast = self.CE_forecaster.get_forecast(next_aggregator_start_unix_time)
-        time01 = time.time()
         
         #-----------------------------
         # Calculate Optimal Solution
         #-----------------------------
-        time02 = time.time()
         process_id = '1'
         tmp_Caldera_state_info = {}
         tmp_Caldera_state_info[process_id] = Caldera_state_info_dict[Caldera_message_types.ES500_get_charging_needs]
-        time03 = time.time()
-        
-        '''
-        print("ES500 fed: starting solve")
-        self.aggregator_obj.start_solving(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)
-        
-        tmp_Caldera_control_info = None
-        while True:
-            tmp_Caldera_control_info = self.aggregator_obj.check_for_solution(next_aggregator_start_unix_time)
-            
-            if tmp_Caldera_control_info == None:
-                time.sleep(self.aggregator_poll_time_sec)
-            else:
-                break
-        '''
         
         #-----------------------------
         
-        time04 = time.time()
         self.pev_energy = self.aggregator_obj.start_solving_v2(next_aggregator_start_unix_time, tmp_Caldera_state_info, CE_forecast, D_net_kWh)  # Needed to log data
         Caldera_control_info_dict = {}
         Caldera_control_info_dict[Caldera_message_types.ES500_set_energy_setpoints] = self.pev_energy[process_id]
         
         DSS_control_info_dict = {}
-        time05 = time.time()
-
-        print("flag1")
-        print("   time_since_last_call: ",time_since_last_call)
-        print("   time00: ",time00 )
-        print("   time01: ",time01 )
-        print("   time02: ",time02 )
-        print("   time03: ",time03 )
-        print("   time04: ",time04 )
-        print("   time05: ",time05 )
-        print("   time01-time00: ", time01-time00 )
-        print("   time03-time02: ", time03-time02 )
-        print("   time05-time04: ", time05-time04 )
-        print("   time05-time00: ", time05-time00 )
-        
-        # Start measuring time to the next call of this function.
-        self.between_solves_time = time.time()
 
         # Caldera_control_info_dict must be a dictionary with Caldera_message_types as keys.
         # DSS_control_info_dict must be a dictionary with OpenDSS_message_types as keys.
         # If either value has nothing to return, return an empty dictionary.
         return (Caldera_control_info_dict, DSS_control_info_dict)
 
+
+    def cleanup_this_federate(self):
+        print("In cleanup_this_federate")
+
+        dem_gen_df = pd.DataFrame()
+        debug = True
+        dem_gen_df['time'] = np.arange(self.start_simulation_unix_time, self.end_simulation_unix_time, self.forecast_timestep_mins * 60)/3600.0
+        for data_id in ['demand', 'nuclear', 'solar', 'wind']:
+            dem_gen_df[data_id] = np.array(self.cost_forecaster.get_raw_data_for_time_range( data_id, 'actual', self.start_simulation_unix_time, self.start_simulation_unix_time, self.end_simulation_unix_time, self.forecast_timestep_mins * 60, debug).data)
+        
+        dem_gen_df["net_renewables"] = dem_gen_df['nuclear'] + dem_gen_df['solar'] + dem_gen_df['wind'] - dem_gen_df['demand']
+        
+        dem_gen_df.to_csv(os.path.join(self.io_dir.outputs_dir, 'ES500_demand_generation.csv'), index = False)
+
+        print("Done writing")
 
 
 class ES500_Aggregator_log_files:
@@ -337,4 +357,3 @@ class ES500_Aggregator_log_files:
                 for i in range(len(SE_id)):
                     line = "{}, {}, {}, {}, {}, {}".format(start_time, start_time/3600, process_id, SE_id[i], e3_step_kWh[i], charge_progression[i])
                     self.f_e_step.write(line + '\n')      
- 

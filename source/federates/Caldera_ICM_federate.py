@@ -138,7 +138,7 @@ def caldera_ICM_federate( io_dir,
         #=====================================
         #         	Sub Step 1 
         #=====================================
-        
+
         #-------------------------------------
         #     Process TypeB Control-Info
         #-------------------------------------
@@ -149,9 +149,10 @@ def caldera_ICM_federate( io_dir,
             
         #=====================================
         #         	Sub Step 2        
-        #=====================================        
+        #=====================================
+
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
+
         #-------------------------------------
         # Read node voltages from OpenDSS
         #-------------------------------------
@@ -162,7 +163,7 @@ def caldera_ICM_federate( io_dir,
         # Calculate pev P and Q
         #-------------------------------------
         node_pevPQ = ICM_obj.get_charging_power(federate_time, node_puV)
-        
+
         #-------------------------------------
         # Send pev P and Q to OpenDSS
         #-------------------------------------
@@ -172,7 +173,7 @@ def caldera_ICM_federate( io_dir,
         #         	Sub Step 3
         #=====================================		
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
+
         #-------------------------------------
         #   Read & Process TypeB Messages
         #-------------------------------------
@@ -181,12 +182,12 @@ def caldera_ICM_federate( io_dir,
             msg_dict = ICM_obj.process_control_messages(federate_time, msg_dict)
             if len(msg_dict) != 0:
                 send(msg_dict, typeB_control_endpoint, source)
-
+        
         #=====================================
         #         	Sub Step 4
         #=====================================
         federate_time = h.helicsFederateRequestNextStep(fed)
-        
+
         #-------------------------------------
         #   Read & Process TypeA Messages
         #-------------------------------------
