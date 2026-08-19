@@ -1,0 +1,56 @@
+name: C/C++ CI
+on:
+  push:
+
+jobs:
+  example_matrix:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+        python-version: ["3.7"]
+        compiler: [gcc]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash # Use bash for all run steps by default
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install compiler
+        id: install_cc
+        uses: rlalik/setup-cpp-compiler@master
+        with:
+          compiler: ${{ matrix.compiler }}
+
+      - name: Install dependencies
+        run: |
+          pip install pandas
+          pip install "pybind11[global]"
+          pip install cvxopt
+          pip install "OpenDSSDirect.py[extras]"
+          pip install helics
+          pip install numpy
+          
+      - name: Configure build
+        run: |
+          mkdir -p build
+          cd build
+          rm -rf *
+          pwd
+          export CC=${{ steps.install_cc.outputs.cc }}
+          export CXX=${{ steps.install_cc.outputs.cxx }}
+          echo ${CC}
+          echo ${CXX}
+          if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
+            sudo apt install libomp-dev
+          fi
+          cmake -DICM=ON -DCMAKE_INSTALL_PREFIX=$HOME/my-project-installation ..
+          make -j 4
+          make install
+      - name: Start Execute Script
+        run: python start_execution.py
